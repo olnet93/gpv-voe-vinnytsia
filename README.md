@@ -1,7 +1,12 @@
 # gpv-voe-vinnytsia
+Автоматичний парсинг планових відключень Вінниця (e-svitlo).
 
-Автоматичний парсинг відключень з vn.e-svitlo.com.ua з оновленням кожні 10 хвилин.
+## Дані:
+Парситься блок `planned_list_cab`, ігнорується `current_list_cab`.
 
-## Secrets
-- ESVITLO_LOGIN
-- ESVITLO_PASSWORD
+## Автооновлення:
+GitHub Actions запускається кожні 10 хвилин.
+
+## secrets:
+- `ESVITLO_LOGIN`
+- `ESVITLO_PASSWORD`
