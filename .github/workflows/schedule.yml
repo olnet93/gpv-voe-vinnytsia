@@ -1,19 +1,36 @@
-name: Scrape
+name: Scrape E-svitlo
 on:
   schedule:
     - cron: "*/10 * * * *"
   workflow_dispatch:
 
 jobs:
-  run:
+  scrape:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
           python-version: "3.11"
-      - run: pip install -r requirements.txt
-      - run: python scraper.py
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run scraper
         env:
-          ESVITLO_LOGIN: ${{ secrets.ESVITLO_LOGIN }}
-          ESVITLO_PASSWORD: ${{ secrets.ESVITLO_PASSWORD }}
+          CF_CLEARANCE: ${{ secrets.CF_CLEARANCE }}
+          CI_SESSION: ${{ secrets.CI_SESSION }}
+        run: python scraper.py
+
+      - name: Commit results
+        run: |
+          git config --global user.email "bot@example.com"
+          git config --global user.name "scraper-bot"
+
+          git add result.json || true
+          git commit -m "Update data" || true
+          git push || true
