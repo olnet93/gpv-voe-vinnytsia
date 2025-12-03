@@ -30,41 +30,49 @@ if not LOGIN or not PASSWORD:
 def login_and_parse():
     print("🚀 Запуск Playwright парсера...")
     
+    # Запускаємо з XVFB для GitHub Actions
+    env = os.environ.copy()
+    env['DISPLAY'] = ':99'
+    
     with sync_playwright() as p:
-        # Запускаємо браузер з реалістичними налаштуваннями
-        browser = p.chromium.launch(headless=True)
+        browser = p.chromium.launch(
+            headless=True,
+            args=['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+        )
         context = browser.new_context(
             viewport={'width': 1366, 'height': 768},
             user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             locale='uk-UA',
-            timezone_id='Europe/Kiev'
+            timezone_id='Europe/Kiev',
+            extra_http_headers={
+                'Accept-Language': 'uk-UA,uk;q=0.9,ru;q=0.8,en;q=0.7'
+            }
         )
         page = context.new_page()
         
         try:
-            print("🔐 Переходимо на сторінку логіну...")
-            page.goto("https://vn.e-svitlo.com.ua/user/login", wait_until="networkidle")
-            print("✅ Сторінка логіну завантажена")
+            print("🔐 Логін...")
+            page.goto("https://vn.e-svitlo.com.ua/user/login", wait_until="domcontentloaded", timeout=60000)
+            page.wait_for_load_state("networkidle", timeout=30000)
             
-            # Знаходимо поля логіну
-            login_input = page.locator('input[name="login"], input[placeholder*="логін"], input[type="email"]')
-            password_input = page.locator('input[name="password"], input[type="password"]')
-            submit_button = page.locator('button[type="submit"], input[type="submit"], button:has-text("Вхід"), button:has-text("Увійти")')
+            # Чекаємо форму логіну
+            page.wait_for_selector('input[name="login"], input[type="email"], input[placeholder*="логін"]', timeout=10000)
             
-            print("⏳ Вводимо логін...")
-            login_input.fill(LOGIN)
+            # Заповнюємо форму
+            login_selector = 'input[name="login"], input[type="email"], input[placeholder*="логін"]'
+            password_selector = 'input[name="password"], input[type="password"]'
+            submit_selector = 'button[type="submit"], input[type="submit"], button:has-text("Вхід"), button:has-text("Увійти")'
+            
+            page.locator(login_selector).fill(LOGIN)
             time.sleep(1)
-            
-            print("⏳ Вводимо пароль...")
-            password_input.fill(PASSWORD)
+            page.locator(password_selector).fill(PASSWORD)
             time.sleep(1)
+            page.locator(submit_selector).click()
             
-            print("🔑 Натискаємо кнопку входу...")
-            submit_button.click()
-            
-            # Чекаємо перенаправлення або появи logout
-            page.wait_for_url("**/account_household**", timeout=30000)
+            # Чекаємо успішний логін (перенаправлення)
+            page.wait_for_url("**/account_household** || **/cabinet** || **/dashboard**", timeout=30000)
             print("✅ Авторизація успішна!")
+
             
             # Перевіряємо, що ми в кабінеті
             if page.locator('text=Вийти, logout').count() > 0:
@@ -114,11 +122,13 @@ def login_and_parse():
                     all_outages.extend(queue_outages)
                     print(f"  📊 Знайдено {len(queue_outages)} планових відключень")
                     
-                except Exception as e:
-                    print(f"  ❌ Помилка черги {idx}: {str(e)}")
-                    continue
-            
-            print(f"\n🎉 Загалом знайдено {len(all_outages)} відключень")
+        except Exception as e:
+            print(f"💥 Помилка: {e}")
+            page.screenshot(path="error.png")
+            print("📸 Скріншот збережено")
+            return False
+        finally:
+            browser.close()
             
             # Зберігаємо результат
             result = {
