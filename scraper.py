@@ -1,7 +1,9 @@
+import asyncio
+from playwright.async_api import async_playwright
+from playwright_stealth import stealth
 import json
 import os
 import time
-import requests
 
 # URLs для парсингу
 URLS = [
@@ -25,51 +27,46 @@ URLS = [
     "https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic=62Z029828840776V&type_user=1&a=290637",
 ]
 
-def fetch():
-    cf_clearance = os.getenv("CF_CLEARANCE")
-    ci_session = os.getenv("CI_SESSION")
+async def fetch_page(page, url):
+    await page.goto(url, wait_until="networkidle")
+    content = await page.content()
+    # Сторінка повертає JSON як текст
+    text = await page.inner_text("body")
+    try:
+        data = json.loads(text)
+        return data
+    except:
+        print("Error parsing JSON from", url)
+        return None
 
-    if not cf_clearance or not ci_session:
-        raise Exception("Missing CF_CLEARANCE or CI_SESSION in environment!")
-
-    session = requests.Session()
-    # Встановлюємо cookies
-    session.cookies.set("cf_clearance", cf_clearance, domain="vn.e-svitlo.com.ua")
-    session.cookies.set("ci_session", ci_session, domain="vn.e-svitlo.com.ua")
-
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
-
+async def main():
     all_results = []
 
-    for url in URLS:
-        print(f"Fetching: {url}")
-        r = session.get(url, headers=headers)
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        context = await browser.new_context()
+        page = await context.new_page()
+        await stealth(page)  # застосовуємо stealth для Cloudflare
 
-        if r.status_code != 200:
-            print("Error:", r.status_code)
-            continue
+        for url in URLS:
+            print(f"Fetching: {url}")
+            data = await fetch_page(page, url)
+            if data and "planned_list_cab" in data:
+                for item in data["planned_list_cab"]:
+                    all_results.append({
+                        "acc_begin": item.get("acc_begin"),
+                        "accend_plan": item.get("accend_plan"),
+                        "queue": url,
+                        "timestamp": int(time.time())
+                    })
 
-        try:
-            data = r.json()
-        except:
-            print("Invalid JSON")
-            continue
+        await browser.close()
 
-        if "planned_list_cab" in data and isinstance(data["planned_list_cab"], list):
-            for item in data["planned_list_cab"]:
-                all_results.append({
-                    "acc_begin": item.get("acc_begin"),
-                    "accend_plan": item.get("accend_plan"),
-                    "queue": url,
-                    "timestamp": int(time.time())
-                })
-
+    # Зберігаємо результат
     with open("result.json", "w", encoding="utf-8") as f:
-        json.dump(all_results, f, indent=4, ensure_ascii=False)
+        json.dump(all_results, f, ensure_ascii=False, indent=4)
 
     print("Saved to result.json")
 
 if __name__ == "__main__":
-    fetch()
+    asyncio.run(main())
