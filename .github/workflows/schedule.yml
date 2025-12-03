@@ -1,22 +1,28 @@
 name: Scrape E-svitlo
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "*/10 * * * *"  # запуск кожні 10 хв
   workflow_dispatch:
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v4
         with:
           python-version: "3.11"
-      - run: pip install -r requirements.txt
-      - run: python scraper.py
-        env:
-          CF_CLEARANCE: ${{ secrets.CF_CLEARANCE }}
-          CI_SESSION: ${{ secrets.CI_SESSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          playwright install
+
+      - name: Run scraper
+        run: python scraper.py
+
       - name: Commit results
         run: |
           git config --global user.email "bot@example.com"
