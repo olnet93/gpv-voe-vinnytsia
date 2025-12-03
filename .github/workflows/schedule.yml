@@ -17,8 +17,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
-          playwright install
+          pip install -r requirements.txt   # встановлюємо requests + playwright-stealth
+          playwright install               # встановлюємо браузери Chromium/Firefox/WebKit
 
       - name: Run scraper
         run: python scraper.py
