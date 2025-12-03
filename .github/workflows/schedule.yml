@@ -1,0 +1,30 @@
+name: Scrape
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: pip install -r requirements.txt
+      - name: Run scraper
+        env:
+          ESVITLO_LOGIN: ${{ secrets.ESVITLO_LOGIN }}
+          ESVITLO_PASSWORD: ${{ secrets.ESVITLO_PASSWORD }}
+        run: python scraper.py
+      - name: Commit
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add data/disconnections.json
+          git commit -m "Update data" || echo "No changes"
+          git push
