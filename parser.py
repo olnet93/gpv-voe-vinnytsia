@@ -11,6 +11,7 @@ warnings.filterwarnings("ignore", category=requests.packages.urllib3.exceptions.
 # URL логіну та головна сторінка
 LOGIN_URL = "https://vn.e-svitlo.com.ua/user/login"
 MAIN_URL = "https://vn.e-svitlo.com.ua/"
+
 # Список URL черг
 QUEUE_URLS = [
     "https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic=62Z7056418802433&type_user=1&a=290637",
@@ -34,7 +35,6 @@ if not LOGIN or not PASSWORD:
     raise Exception("ESVITLO_LOGIN або ESVITLO_PASSWORD не встановлені")
 
 def create_session():
-    """Створюємо сесію з реалістичними заголовками"""
     session = requests.Session()
     session.headers.update({
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -44,27 +44,27 @@ def create_session():
         'Connection': 'keep-alive',
         'Upgrade-Insecure-Requests': '1',
     })
-    session.verify = False  # Ігноруємо SSL для GitHub Actions
+    session.verify = False
     return session
 
 def login(session):
-    """Багатостадійна авторизація"""
-    print("Крок 1: Завантажуємо сторінку логіну...")
+    print("🔐 Початок авторизації...")
     
-    # Крок 1: Отримуємо сторінку логіну для CSRF токена
+    # Крок 1: Отримуємо сторінку логіну
+    print("Завантажуємо сторінку логіну...")
     login_page = session.get(LOGIN_URL, timeout=30)
+    print(f"Статус сторінки логіну: {login_page.status_code}")
+    
     if login_page.status_code != 200:
         raise Exception(f"Не вдалося завантажити сторінку логіну: {login_page.status_code}")
     
-    print(f"Статус сторінки логіну: {login_page.status_code}")
-    
-    # Шукаємо CSRF токен (якщо є)
+    # Шукаємо CSRF токен
     csrf_token = re.search(r'name="_token"[^>]*value="([^"]*)"', login_page.text)
     token = csrf_token.group(1) if csrf_token else ""
+    print(f"CSRF токен знайдено: {'Так' if token else 'Ні'}")
     
-    print("Крок 2: Виконуємо логін...")
-    
-    # Крок 2: Відправляємо дані логіну
+    # Крок 2: Відправляємо логін
+    print("Відправляємо дані логіну...")
     login_data = {
         'login': LOGIN,
         'password': PASSWORD,
@@ -77,70 +77,69 @@ def login(session):
         'Content-Type': 'application/x-www-form-urlencoded',
         'Origin': 'https://vn.e-svitlo.com.ua',
         'Referer': LOGIN_URL,
-        'X-Requested-With': 'XMLHttpRequest'
     }
     
     login_response = session.post(LOGIN_URL, data=login_data, headers=headers, timeout=30, allow_redirects=True)
     print(f"Статус відповіді логіну: {login_response.status_code}")
+    print(f"URL після логіну: {login_response.url}")
     
-    # Перевіряємо успішність логіну
-    if "cabinet" in login_response.url or "account" in login_response.url:
+    # Перевіряємо успішність
+    if login_response.status_code == 200 and ("cabinet" in login_response.url or "account" in login_response.url or "logout" in login_response.text.lower()):
         print("✅ Авторизація успішна!")
         return True
-    elif "logout" in login_response.text.lower():
-        print("✅ Авторизація успішна (logout знайдено)")
-        return True
     else:
-        print("❌ Логін не вдався. Перевіряємо cookies...")
-        print(f"URL після логіну: {login_response.url}")
-        print(f"Cookies: {len(session.cookies)} шт.")
+        print("❌ Авторизація не вдалася")
+        print(f"Текст відповіді містить: {login_response.text[:200]}...")
         return False
 
 def extract_json_from_html(html_content):
-    """Витягуємо JSON з HTML (з тегів script)"""
-    # Шукаємо JSON у <script> тегах
-    json_matches = re.findall(r'var\s+(planned_list_cab|current_list_cab)\s*=\s*(\[.*?\]);?\s*</script>', html_content, re.DOTALL)
+    """Витягуємо JSON з HTML"""
+    patterns = [
+        r'var\s+planned_list_cab\s*=\s*(\[.*?\]);?\s*',
+        r'planned_list_cab\s*:\s*(\[.*?\]),?\s*',
+        r'"planned_list_cab"\s*:\s*(\[.*?\]),?\s*'
+    ]
     
     planned_data = []
-    for var_name, json_str in json_matches:
-        if var_name == 'planned_list_cab':
+    for pattern in patterns:
+        matches = re.findall(pattern, html_content, re.DOTALL)
+        for match in matches:
             try:
-                data = json.loads(json_str)
-                planned_data.extend(data)
+                data = json.loads(match)
+                if isinstance(data, list):
+                    planned_data.extend(data)
             except json.JSONDecodeError:
                 continue
     
     return planned_data
 
 def parse_outages(session):
-    """Парсинг черг"""
     all_outages = []
     
-    # Перевіряємо доступ до кабінету
-    print("Перевіряємо доступ до кабінету...")
+    print("📋 Перевіряємо доступ до кабінету...")
     check_page = session.get(MAIN_URL, timeout=30)
-    print(f"Статус головної сторінки: {check_page.status_code}")
+    print(f"Статус головної: {check_page.status_code}")
     
     for idx, url in enumerate(QUEUE_URLS, 1):
-        print(f"\nОбробляємо чергу {idx}/12: {url.split('eic=')[1][:12]}...")
+        print(f"\n⏳ Черга {idx}/12...")
         
         try:
-            time.sleep(2)  # Пауза між запитами
+            time.sleep(2)
             response = session.get(url, timeout=30)
             
             if response.status_code != 200:
-                print(f"  ❌ Помилка: {response.status_code}")
+                print(f"  ❌ HTTP {response.status_code}")
                 continue
             
-            print(f"  ✅ Статус: {response.status_code}")
+            print(f"  ✅ HTTP {response.status_code}")
             
-            # Витягуємо JSON з HTML
+            # Шукаємо planned_list_cab
             planned_list = extract_json_from_html(response.text)
             
             queue_outages = []
             for item in planned_list:
-                acc_begin = item.get('acc_begin', '')
-                accend_plan = item.get('accend_plan', '')
+                acc_begin = item.get('acc_begin', '') if isinstance(item, dict) else ''
+                accend_plan = item.get('accend_plan', '') if isinstance(item, dict) else ''
                 
                 if acc_begin and accend_plan:
                     queue_outages.append({
@@ -151,18 +150,41 @@ def parse_outages(session):
                     })
             
             all_outages.extend(queue_outages)
-            print(f"  📊 Знайдено {len(queue_outages)} планових відключень")
+            print(f"  📊 {len(queue_outages)} планових відключень")
             
         except Exception as e:
-            print(f"  ❌ Помилка черги {idx}: {str(e)[:100]}")
+            print(f"  ❌ Помилка: {str(e)[:80]}")
             continue
     
-    print(f"\n🎉 Загалом знайдено {len(all_outages)} відключень")
+    print(f"\n🎉 Всього: {len(all_outages)} відключень")
     return all_outages
 
 def main():
+    print("🚀 Запуск парсера gpv-voe-vinnytsia...")
     session = create_session()
     
     try:
-        # Авторизація
-        if not
+        if not login(session):
+            print("❌ Неможливо продовжити без авторизації")
+            exit(1)
+        
+        outages = parse_outages(session)
+        
+        result = {
+            "last_updated": datetime.now().isoformat(),
+            "total_outages": len(outages),
+            "outages": outages
+        }
+        
+        with open("outages.json", "w", encoding="utf-8") as f:
+            json.dump(result, f, ensure_ascii=False, indent=2)
+        
+        print("\n✅ Дані збережено!")
+        print(f"📄 outages.json оновлено: {len(outages)} записів")
+        
+    except Exception as e:
+        print(f"\n💥 Критична помилка: {e}")
+        exit(1)
+
+if __name__ == "__main__":
+    main()
