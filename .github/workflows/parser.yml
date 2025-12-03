@@ -20,22 +20,32 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Встановити Playwright та залежності
+      - name: Встановити системні залежності для Playwright
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            wget gnupg \
+            libnss3 libatk-bridge2.0-0 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 \
+            libxrandr2 libgbm1 libasound2t64 libxss1 libgtk-3-0 xvfb
+
+      - name: Встановити Playwright
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          playwright install --with-deps chromium
+          playwright install-deps chromium
+          playwright install chromium
 
       - name: Запустити парсер
         env:
           ESVITLO_LOGIN: ${{ secrets.ESVITLO_LOGIN }}
           ESVITLO_PASSWORD: ${{ secrets.ESVITLO_PASSWORD }}
-        run: python parser.py
+        run: |
+          python parser.py
 
       - name: Зберегти зміни
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add outages.json error.png
+          git add outages.json error.png || true
           git diff --cached --quiet || git commit -m "Оновлено відключення: $(date)"
           git push
