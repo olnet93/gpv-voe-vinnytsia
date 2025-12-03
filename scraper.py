@@ -1,13 +1,13 @@
 import asyncio
 from playwright.async_api import async_playwright
-from playwright_stealth import stealth_async  # ✅ новий правильний імпорт
+from playwright_stealth import stealth
 import json
 import time
 
 URLS = [
     "https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic=62Z7056418802433&type_user=1&a=290637",
     "https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic=62Z3790933130321&type_user=1&a=290637",
-    # додати інші URLи
+    # додайте інші URLи сюди
 ]
 
 async def fetch_page(page, url):
@@ -27,7 +27,8 @@ async def main():
         context = await browser.new_context()
         page = await context.new_page()
 
-        await stealth_async(page)  # ✅ правильний виклик
+        # ✅ правильний виклик stealth
+        await stealth(page)
 
         for url in URLS:
             print(f"Fetching: {url}")
