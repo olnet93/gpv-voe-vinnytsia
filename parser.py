@@ -50,7 +50,6 @@ def create_scraper():
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Accept': 'application/json, text/plain, */*',
         'Accept-Language': 'uk,ru;q=0.9,en-US;q=0.8,en;q=0.7',
-        'Referer': 'https://vn.e-svitlo.com.ua/account_household',
     })
     return scraper
 
@@ -82,14 +81,16 @@ def login(scraper):
     log("[LOGIN] Response: " + str(resp.status_code))
     log("[LOGIN] Final URL: " + resp.url)
     log("[LOGIN] Cookies: " + str(len(scraper.cookies)))
-    for name, value in scraper.cookies.items():
-        log("[LOGIN] Cookie: " + name + "=" + value[:30])
     
-    # Verify session by accessing cabinet
     time.sleep(2)
-    cabinet = scraper.get("https://vn.e-svitlo.com.ua/account_household", timeout=30, allow_redirects=False)
-    log("[LOGIN] Cabinet status: " + str(cabinet.status_code))
-    log("[LOGIN] Cabinet URL: " + cabinet.url)
+    
+    # ВАЖНО: явно йти на cabinet сторінку щоб активувати сесію
+    log("[LOGIN] Activating session - GET cabinet page with redirects")
+    cabinet_resp = scraper.get("https://vn.e-svitlo.com.ua/account_household", timeout=30, allow_redirects=True)
+    log("[LOGIN] Cabinet response: " + str(cabinet_resp.status_code))
+    log("[LOGIN] Cabinet final URL: " + cabinet_resp.url)
+    
+    time.sleep(1)
     
     log("[LOGIN] OK")
     return scraper
@@ -106,8 +107,6 @@ def extract_json_from_html(html_content, queue_num):
             log("[Q" + str(queue_num) + "] DEBUG: No <pre> tag found")
             if "login" in html_content.lower():
                 log("[Q" + str(queue_num) + "] DEBUG: Found 'login' - redirected to login page")
-            if len(html_content) < 500:
-                log("[Q" + str(queue_num) + "] DEBUG: First 300 chars: " + html_content[:300])
     except Exception as e:
         log("[Q" + str(queue_num) + "] DEBUG: Extract error: " + str(e))
     
@@ -118,22 +117,21 @@ def parse_queue(scraper, url, queue_num):
         time.sleep(1)
         log("[Q" + str(queue_num) + "] GET")
         
-        # Try WITHOUT redirects first
+        # Спробуємо БЕЗ redirects першим разом
         response = scraper.get(url, timeout=30, allow_redirects=False)
         
         log("[Q" + str(queue_num) + "] Status: " + str(response.status_code))
-        log("[Q" + str(queue_num) + "] Length: " + str(len(response.text)))
-        log("[Q" + str(queue_num) + "] URL: " + response.url)
         
-        # If redirect, follow it
+        # Якщо 303/redirect, НЕ йти по редіректу, а спробувати інший спосіб
         if response.status_code in [301, 302, 303, 307, 308]:
-            log("[Q" + str(queue_num) + "] REDIRECT: " + response.headers.get('Location', 'unknown'))
+            log("[Q" + str(queue_num) + "] Got redirect, trying with allow_redirects=True")
             response = scraper.get(url, timeout=30, allow_redirects=True)
-            log("[Q" + str(queue_num) + "] After redirect - Status: " + str(response.status_code))
-            log("[Q" + str(queue_num) + "] After redirect - URL: " + response.url)
+            log("[Q" + str(queue_num) + "] After redirect: " + str(response.status_code) + " URL: " + response.url)
+        
+        log("[Q" + str(queue_num) + "] Length: " + str(len(response.text)))
         
         if response.status_code != 200:
-            log("[Q" + str(queue_num) + "] Error status")
+            log("[Q" + str(queue_num) + "] Error status: " + str(response.status_code))
             return []
         
         data = extract_json_from_html(response.text, queue_num)
