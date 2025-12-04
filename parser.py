@@ -38,6 +38,7 @@ PASSWORD = os.getenv("ESVITLO_PASSWORD")
 
 log("LOGIN: " + str(bool(LOGIN)))
 log("PASSWORD: " + str(bool(PASSWORD)))
+log("Total queues: " + str(len(QUEUE_URLS)))
 
 if not LOGIN or not PASSWORD:
     log("ERROR: No credentials")
@@ -84,7 +85,6 @@ def login(scraper):
 def extract_json_from_html(html_content):
     """Extract JSON from <pre> tag"""
     try:
-        # Find content between <pre> and </pre>
         match = re.search(r'<pre>(.*?)</pre>', html_content, re.DOTALL)
         if match:
             json_str = match.group(1).strip()
@@ -107,7 +107,6 @@ def parse_queue(scraper, url, queue_num):
             log("[Q" + str(queue_num) + "] Error status")
             return []
         
-        # Extract JSON from HTML
         data = extract_json_from_html(response.text)
         
         if not data:
