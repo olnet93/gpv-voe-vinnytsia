@@ -2,14 +2,21 @@ import json
 import os
 import time
 import re
+import sys
 from datetime import datetime
 from urllib.parse import urlparse
 
+# Додаємо логування в stderr для GitHub Actions
+def log(msg):
+    print(msg, file=sys.stderr)
+    print(msg)
+
 try:
     import cloudscraper
-except ImportError:
-    print("❌ cloudscraper не встановлений!")
-    print("Встановіть: pip install cloudscraper")
+    log("✅ cloudscraper імпортовано")
+except ImportError as e:
+    log(f"❌ cloudscraper не встановлений: {e}")
+    log("Встановіть: pip install cloudscraper")
     exit(1)
 
 # Список URL черг
@@ -31,9 +38,4 @@ QUEUE_URLS = [
 LOGIN = os.getenv("ESVITLO_LOGIN")
 PASSWORD = os.getenv("ESVITLO_PASSWORD")
 
-if not LOGIN or not PASSWORD:
-    raise Exception("ESVITLO_LOGIN або ESVITLO_PASSWORD не встановлені")
-
-def create_scraper():
-    """Створюємо scraper з обходом Cloudflare"""
-    scraper = cloud
+log(f"📝 LOGIN завантажено: {b
