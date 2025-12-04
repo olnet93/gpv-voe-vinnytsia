@@ -38,4 +38,4 @@ QUEUE_URLS = [
 LOGIN = os.getenv("ESVITLO_LOGIN")
 PASSWORD = os.getenv("ESVITLO_PASSWORD")
 
-log(f"📝 LOGIN завантажено: {b
+log(f"📝 LOGIN завантажено: {b}")
