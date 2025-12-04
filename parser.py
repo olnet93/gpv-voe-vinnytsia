@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/ur/bin/env python3
 """
 Debug parser - find API endpoint
 """
