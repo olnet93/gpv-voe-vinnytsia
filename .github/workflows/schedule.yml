@@ -1,7 +1,7 @@
 name: Scrape E-svitlo
 on:
   schedule:
-    - cron: "*/10 * * * *"  # запуск кожні 10 хв
+    - cron: "*/10 * * * *"  # кожні 10 хв
   workflow_dispatch:
 
 jobs:
@@ -17,8 +17,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt   # встановлюємо requests + playwright-stealth
-          playwright install               # встановлюємо браузери Chromium/Firefox/WebKit
+          pip install -r requirements.txt
+          playwright install
 
       - name: Run scraper
         run: python scraper.py
