@@ -80,13 +80,18 @@ def login(scraper):
     )
     
     log("[LOGIN] Response: " + str(resp.status_code))
+    log("[LOGIN] Final URL: " + resp.url)
     log("[LOGIN] Cookies: " + str(len(scraper.cookies)))
     for name, value in scraper.cookies.items():
         log("[LOGIN] Cookie: " + name + "=" + value[:30])
-    log("[LOGIN] OK")
     
+    # Verify session by accessing cabinet
     time.sleep(2)
+    cabinet = scraper.get("https://vn.e-svitlo.com.ua/account_household", timeout=30, allow_redirects=False)
+    log("[LOGIN] Cabinet status: " + str(cabinet.status_code))
+    log("[LOGIN] Cabinet URL: " + cabinet.url)
     
+    log("[LOGIN] OK")
     return scraper
 
 def extract_json_from_html(html_content, queue_num):
@@ -113,12 +118,19 @@ def parse_queue(scraper, url, queue_num):
         time.sleep(1)
         log("[Q" + str(queue_num) + "] GET")
         
-        # Add explicit cookies to request
-        response = scraper.get(url, timeout=30, allow_redirects=True)
+        # Try WITHOUT redirects first
+        response = scraper.get(url, timeout=30, allow_redirects=False)
         
         log("[Q" + str(queue_num) + "] Status: " + str(response.status_code))
         log("[Q" + str(queue_num) + "] Length: " + str(len(response.text)))
         log("[Q" + str(queue_num) + "] URL: " + response.url)
+        
+        # If redirect, follow it
+        if response.status_code in [301, 302, 303, 307, 308]:
+            log("[Q" + str(queue_num) + "] REDIRECT: " + response.headers.get('Location', 'unknown'))
+            response = scraper.get(url, timeout=30, allow_redirects=True)
+            log("[Q" + str(queue_num) + "] After redirect - Status: " + str(response.status_code))
+            log("[Q" + str(queue_num) + "] After redirect - URL: " + response.url)
         
         if response.status_code != 200:
             log("[Q" + str(queue_num) + "] Error status")
@@ -150,8 +162,6 @@ def parse_queue(scraper, url, queue_num):
         
     except Exception as e:
         log("[Q" + str(queue_num) + "] ERROR: " + str(e)[:100])
-        import traceback
-        log("[Q" + str(queue_num) + "] Traceback: " + traceback.format_exc()[:200])
         return []
 
 def main():
