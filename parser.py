@@ -50,6 +50,7 @@ def create_scraper():
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Accept': 'application/json, text/plain, */*',
         'Accept-Language': 'uk,ru;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Referer': 'https://vn.e-svitlo.com.ua/account_household',
     })
     return scraper
 
@@ -79,7 +80,13 @@ def login(scraper):
     )
     
     log("[LOGIN] Response: " + str(resp.status_code))
+    log("[LOGIN] Cookies: " + str(len(scraper.cookies)))
+    for name, value in scraper.cookies.items():
+        log("[LOGIN] Cookie: " + name + "=" + value[:30])
     log("[LOGIN] OK")
+    
+    time.sleep(2)
+    
     return scraper
 
 def extract_json_from_html(html_content, queue_num):
@@ -92,14 +99,10 @@ def extract_json_from_html(html_content, queue_num):
             return data
         else:
             log("[Q" + str(queue_num) + "] DEBUG: No <pre> tag found")
-            # Check what's in the HTML
             if "login" in html_content.lower():
-                log("[Q" + str(queue_num) + "] DEBUG: Found 'login' - may be redirected")
-            if "redirect" in html_content.lower():
-                log("[Q" + str(queue_num) + "] DEBUG: Found 'redirect'")
-            if len(html_content) < 100:
-                log("[Q" + str(queue_num) + "] DEBUG: HTML too short: " + str(len(html_content)))
-                log("[Q" + str(queue_num) + "] DEBUG: First 200 chars: " + html_content[:200])
+                log("[Q" + str(queue_num) + "] DEBUG: Found 'login' - redirected to login page")
+            if len(html_content) < 500:
+                log("[Q" + str(queue_num) + "] DEBUG: First 300 chars: " + html_content[:300])
     except Exception as e:
         log("[Q" + str(queue_num) + "] DEBUG: Extract error: " + str(e))
     
@@ -109,10 +112,13 @@ def parse_queue(scraper, url, queue_num):
     try:
         time.sleep(1)
         log("[Q" + str(queue_num) + "] GET")
-        response = scraper.get(url, timeout=30)
+        
+        # Add explicit cookies to request
+        response = scraper.get(url, timeout=30, allow_redirects=True)
         
         log("[Q" + str(queue_num) + "] Status: " + str(response.status_code))
         log("[Q" + str(queue_num) + "] Length: " + str(len(response.text)))
+        log("[Q" + str(queue_num) + "] URL: " + response.url)
         
         if response.status_code != 200:
             log("[Q" + str(queue_num) + "] Error status")
@@ -143,7 +149,9 @@ def parse_queue(scraper, url, queue_num):
         return outages
         
     except Exception as e:
-        log("[Q" + str(queue_num) + "] ERROR: " + str(e)[:80])
+        log("[Q" + str(queue_num) + "] ERROR: " + str(e)[:100])
+        import traceback
+        log("[Q" + str(queue_num) + "] Traceback: " + traceback.format_exc()[:200])
         return []
 
 def main():
