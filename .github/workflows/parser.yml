@@ -1,4 +1,4 @@
-name: Парсинг відключень Вінниця
+name: Parse e-svitlo outages
 
 on:
   schedule:
@@ -13,7 +13,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -30,12 +30,12 @@ jobs:
           ESVITLO_PASSWORD: ${{ secrets.ESVITLO_PASSWORD }}
         run: python parser.py
 
-      - name: Commit results
+      - name: Commit and push
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add outages.json
           if ! git diff --cached --quiet; then
-            git commit -m "Оновлено відключення: $(date)"
-            git push
+            git commit -m "Update outages: $(date)"
+            git push https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/olnet93/gpv-voe-vinnytsia.git
           fi
