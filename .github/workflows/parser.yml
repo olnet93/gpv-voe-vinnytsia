@@ -34,6 +34,7 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
+          git pull origin main --no-edit
           git add outages.json
           if ! git diff --cached --quiet; then
             git commit -m "Update outages: $(date)"
