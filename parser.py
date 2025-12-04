@@ -82,7 +82,7 @@ def login(scraper):
     log("[LOGIN] OK")
     return scraper
 
-def extract_json_from_html(html_content):
+def extract_json_from_html(html_content, queue_num):
     """Extract JSON from <pre> tag"""
     try:
         match = re.search(r'<pre>(.*?)</pre>', html_content, re.DOTALL)
@@ -90,8 +90,18 @@ def extract_json_from_html(html_content):
             json_str = match.group(1).strip()
             data = json.loads(json_str)
             return data
+        else:
+            log("[Q" + str(queue_num) + "] DEBUG: No <pre> tag found")
+            # Check what's in the HTML
+            if "login" in html_content.lower():
+                log("[Q" + str(queue_num) + "] DEBUG: Found 'login' - may be redirected")
+            if "redirect" in html_content.lower():
+                log("[Q" + str(queue_num) + "] DEBUG: Found 'redirect'")
+            if len(html_content) < 100:
+                log("[Q" + str(queue_num) + "] DEBUG: HTML too short: " + str(len(html_content)))
+                log("[Q" + str(queue_num) + "] DEBUG: First 200 chars: " + html_content[:200])
     except Exception as e:
-        log("[EXTRACT] Error: " + str(e))
+        log("[Q" + str(queue_num) + "] DEBUG: Extract error: " + str(e))
     
     return None
 
@@ -102,12 +112,13 @@ def parse_queue(scraper, url, queue_num):
         response = scraper.get(url, timeout=30)
         
         log("[Q" + str(queue_num) + "] Status: " + str(response.status_code))
+        log("[Q" + str(queue_num) + "] Length: " + str(len(response.text)))
         
         if response.status_code != 200:
             log("[Q" + str(queue_num) + "] Error status")
             return []
         
-        data = extract_json_from_html(response.text)
+        data = extract_json_from_html(response.text, queue_num)
         
         if not data:
             log("[Q" + str(queue_num) + "] No JSON found")
