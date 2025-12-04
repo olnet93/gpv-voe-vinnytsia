@@ -1,0 +1,41 @@
+name: Парсинг відключень Вінниця
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  parse:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install requests
+
+      - name: Run parser
+        env:
+          ESVITLO_LOGIN: ${{ secrets.ESVITLO_LOGIN }}
+          ESVITLO_PASSWORD: ${{ secrets.ESVITLO_PASSWORD }}
+        run: python parser.py
+
+      - name: Commit results
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add outages.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Оновлено відключення: $(date)"
+            git push
+          fi
