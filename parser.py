@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 E-svitlo Parser - витягує дані про плановані відключення
-Для 12 черг Вінниця регіон
+Для 12 черг Вінниця регіон (6 груп по 2 черги)
 """
 import json
 import os
@@ -20,7 +20,22 @@ except ImportError:
     log("ERROR: cloudscraper not installed")
     exit(1)
 
-# 12 черг Вінниця
+# 12 черг Вінниця (6 груп по 2 черги)
+QUEUE_MAPPING = {
+    "62Z7056418802433": "queue 1.1",
+    "62Z3790933130321": "queue 1.2",
+    "62Z8643921175882": "queue 2.1",
+    "62Z3250250091115": "queue 2.2",
+    "62Z122797640622H": "queue 3.1",
+    "62Z923769103674C": "queue 3.2",
+    "62Z595315443877G": "queue 4.1",
+    "62Z1881561967951": "queue 4.2",
+    "62Z7896315479246": "queue 5.1",
+    "62Z2780989447998": "queue 5.2",
+    "62Z9499016055016": "queue 6.1",
+    "62Z029828840776V": "queue 6.2"
+}
+
 QUEUE_URLS = [
     "https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic=62Z7056418802433&type_user=1&a=290637",
     "https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic=62Z3790933130321&type_user=1&a=290637",
@@ -60,7 +75,6 @@ def login(scraper):
     """Залогінитися на e-svitlo.com.ua"""
     log("[LOGIN] Starting authentication")
     
-    # Крок 1: GET на домашню сторінку (Cloudflare challenge)
     try:
         cf = scraper.get("https://vn.e-svitlo.com.ua/", timeout=30)
         log("[LOGIN] CF challenge: " + str(cf.status_code))
@@ -69,7 +83,6 @@ def login(scraper):
     
     time.sleep(1)
     
-    # Крок 2: POST логін форму
     data = {
         "email": LOGIN,
         "password": PASSWORD,
@@ -112,49 +125,55 @@ def activate_session(scraper):
     except Exception as e:
         log("[SESSION] Error: " + str(e))
 
-def parse_queue(scraper, url, queue_num):
-    """Парсити одну чергу - тепер відповідь прямо JSON"""
+def get_queue_name(eic):
+    """Отримати назву черги за EIC"""
+    return QUEUE_MAPPING.get(eic, "unknown")
+
+def parse_queue(scraper, url, queue_idx):
+    """Парсити одну чергу"""
     try:
         time.sleep(1)
-        log("[Q" + str(queue_num) + "] Fetching...")
+        
+        # Витягнути EIC з URL для логування
+        eic_match = url.split("eic=")[1].split("&")[0]
+        queue_name = get_queue_name(eic_match)
+        
+        log("[Q" + str(queue_idx) + "] " + queue_name + " Fetching...")
         
         response = scraper.get(url, timeout=30, allow_redirects=True)
         
-        log("[Q" + str(queue_num) + "] Status: " + str(response.status_code))
+        log("[Q" + str(queue_idx) + "] Status: " + str(response.status_code))
         
         if response.status_code != 200:
-            log("[Q" + str(queue_num) + "] ERROR: Status " + str(response.status_code))
+            log("[Q" + str(queue_idx) + "] ERROR: Status " + str(response.status_code))
             return []
         
-        # ВАЖНО: Тепер відповідь вже JSON, не потрібно витягувати з <pre>
         try:
             data = json.loads(response.text)
         except json.JSONDecodeError as e:
-            log("[Q" + str(queue_num) + "] JSON decode error: " + str(e))
+            log("[Q" + str(queue_idx) + "] JSON decode error: " + str(e))
             return []
         
-        # Отримати список плану
         planned_list = data.get('planned_list_cab', [])
-        log("[Q" + str(queue_num) + "] Found: " + str(len(planned_list)) + " outages")
+        log("[Q" + str(queue_idx) + "] Found: " + str(len(planned_list)) + " outages")
         
-        # Конвертувати в наш формат
         outages = []
         for item in planned_list:
             if isinstance(item, dict):
                 outages.append({
-                    'queue': queue_num,
                     'eic': item.get('eic', ''),
+                    'queue': queue_name,
                     'acc_begin': item.get('acc_begin', ''),
                     'accend_plan': item.get('accend_plan', ''),
                     'typeid': item.get('typeid', ''),
                     'address': item.get('address', '')
                 })
         
-        log("[Q" + str(queue_num) + "] Parsed: " + str(len(outages)) + " records")
+        log("[Q" + str(queue_idx) + "] Parsed: " + str(len(outages)) + " records")
         return outages
         
     except Exception as e:
-        log("[Q" + str(queue_num) + "] EXCEPTION: " + str(e)[:100])
+        log("[Q" + str(queue_idx) + "] EXCEPTION: " + str(e)[:100])
         return []
 
 def save_results(all_outages):
@@ -177,23 +196,17 @@ def main():
     log("E-SVITLO PARSER - START")
     log("=" * 70)
     
-    # Логін
     scraper = create_scraper()
     login(scraper)
-    
-    # Активувати сесію
     activate_session(scraper)
     
-    # Парсити всі 12 черг
     log("[MAIN] Parsing 12 queues...")
     all_outages = []
     
     for idx, url in enumerate(QUEUE_URLS, 1):
-        log("[MAIN] Queue " + str(idx) + "/12")
         queue_outages = parse_queue(scraper, url, idx)
         all_outages.extend(queue_outages)
     
-    # Зберегти результати
     log("[MAIN] Total outages: " + str(len(all_outages)))
     save_results(all_outages)
     
