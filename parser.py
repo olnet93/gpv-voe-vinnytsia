@@ -2,7 +2,6 @@
 """
 E-svitlo Parser - витягує дані про плановані відключення
 Для 12 черг Вінниця регіон (6 груп по 2 черги)
-EIC значення прикриті через GitHub Secrets
 """
 import json
 import os
@@ -23,56 +22,33 @@ except ImportError:
 
 # 12 черг Вінниця (6 груп по 2 черги)
 QUEUE_MAPPING = {
-    "1.1": "queue 1.1",
-    "1.2": "queue 1.2",
-    "2.1": "queue 2.1",
-    "2.2": "queue 2.2",
-    "3.1": "queue 3.1",
-    "3.2": "queue 3.2",
-    "4.1": "queue 4.1",
-    "4.2": "queue 4.2",
-    "5.1": "queue 5.1",
-    "5.2": "queue 5.2",
-    "6.1": "queue 6.1",
-    "6.2": "queue 6.2"
+    "62Z7056418802433": "queue 1.1",
+    "62Z3790933130321": "queue 1.2",
+    "62Z8643921175882": "queue 2.1",
+    "62Z3250250091115": "queue 2.2",
+    "62Z122797640622H": "queue 3.1",
+    "62Z923769103674C": "queue 3.2",
+    "62Z595315443877G": "queue 4.1",
+    "62Z1881561967951": "queue 4.2",
+    "62Z7896315479246": "queue 5.1",
+    "62Z2780989447998": "queue 5.2",
+    "62Z9499016055016": "queue 6.1",
+    "62Z029828840776V": "queue 6.2"
 }
 
-# EIC значення з GitHub Secrets (прикриті)
-EICS = {
-    "1.1": os.getenv("ESVITLO_EIC_1_1"),
-    "1.2": os.getenv("ESVITLO_EIC_1_2"),
-    "2.1": os.getenv("ESVITLO_EIC_2_1"),
-    "2.2": os.getenv("ESVITLO_EIC_2_2"),
-    "3.1": os.getenv("ESVITLO_EIC_3_1"),
-    "3.2": os.getenv("ESVITLO_EIC_3_2"),
-    "4.1": os.getenv("ESVITLO_EIC_4_1"),
-    "4.2": os.getenv("ESVITLO_EIC_4_2"),
-    "5.1": os.getenv("ESVITLO_EIC_5_1"),
-    "5.2": os.getenv("ESVITLO_EIC_5_2"),
-    "6.1": os.getenv("ESVITLO_EIC_6_1"),
-    "6.2": os.getenv("ESVITLO_EIC_6_2"),
-}
-
-# Перевірити що всі EIC задані
-missing_eics = [k for k, v in EICS.items() if not v]
-if missing_eics:
-    log("ERROR: Missing EIC secrets: " + str(missing_eics))
-    exit(1)
-
-# Побудувати QUEUE_URLS з прикритими EIC
 QUEUE_URLS = [
-    f"https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic={EICS['1.1']}&type_user=1&a=290637",
-    f"https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic={EICS['1.2']}&type_user=1&a=290637",
-    f"https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic={EICS['2.1']}&type_user=1&a=290637",
-    f"https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic={EICS['2.2']}&type_user=1&a=290637",
-    f"https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic={EICS['3.1']}&type_user=1&a=290637",
-    f"https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic={EICS['3.2']}&type_user=1&a=290637",
-    f"https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic={EICS['4.1']}&type_user=1&a=290637",
-    f"https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic={EICS['4.2']}&type_user=1&a=290637",
-    f"https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic={EICS['5.1']}&type_user=1&a=290637",
-    f"https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic={EICS['5.2']}&type_user=1&a=290637",
-    f"https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic={EICS['6.1']}&type_user=1&a=290637",
-    f"https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic={EICS['6.2']}&type_user=1&a=290637",
+    "https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic=62Z7056418802433&type_user=1&a=290637",
+    "https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic=62Z3790933130321&type_user=1&a=290637",
+    "https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic=62Z8643921175882&type_user=1&a=290637",
+    "https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic=62Z3250250091115&type_user=1&a=290637",
+    "https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic=62Z122797640622H&type_user=1&a=290637",
+    "https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic=62Z923769103674C&type_user=1&a=290637",
+    "https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic=62Z595315443877G&type_user=1&a=290637",
+    "https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic=62Z1881561967951&type_user=1&a=290637",
+    "https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic=62Z7896315479246&type_user=1&a=290637",
+    "https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic=62Z2780989447998&type_user=1&a=290637",
+    "https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic=62Z9499016055016&type_user=1&a=290637",
+    "https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic=62Z029828840776V&type_user=1&a=290637"
 ]
 
 LOGIN = os.getenv("ESVITLO_LOGIN")
@@ -80,7 +56,6 @@ PASSWORD = os.getenv("ESVITLO_PASSWORD")
 
 log("LOGIN: " + str(bool(LOGIN)))
 log("PASSWORD: " + str(bool(PASSWORD)))
-log("EICs loaded: " + str(len([v for v in EICS.values() if v])) + "/12")
 
 if not LOGIN or not PASSWORD:
     log("ERROR: No credentials provided")
@@ -153,16 +128,18 @@ def activate_session(scraper):
     except Exception as e:
         log("[SESSION] Error: " + str(e))
 
-def get_queue_name(queue_key):
-    """Отримати назву черги за ключем"""
-    return QUEUE_MAPPING.get(queue_key, "unknown")
+def get_queue_name(eic):
+    """Отримати назву черги за EIC"""
+    return QUEUE_MAPPING.get(eic, "unknown")
 
-def parse_queue(scraper, url, queue_key, queue_idx):
+def parse_queue(scraper, url, queue_idx):
     """Парсити одну чергу"""
     try:
         time.sleep(1)
         
-        queue_name = get_queue_name(queue_key)
+        # Витягнути EIC з URL для логування
+        eic_match = url.split("eic=")[1].split("&")[0]
+        queue_name = get_queue_name(eic_match)
         
         log("[Q" + str(queue_idx) + "] " + queue_name + " Fetching...")
         
@@ -241,10 +218,8 @@ def main():
     log("[MAIN] Parsing 12 queues...")
     all_outages = []
     
-    queue_keys = ["1.1", "1.2", "2.1", "2.2", "3.1", "3.2", "4.1", "4.2", "5.1", "5.2", "6.1", "6.2"]
-    
-    for idx, (queue_key, url) in enumerate(zip(queue_keys, QUEUE_URLS), 1):
-        queue_outages = parse_queue(scraper, url, queue_key, idx)
+    for idx, url in enumerate(QUEUE_URLS, 1):
+        queue_outages = parse_queue(scraper, url, idx)
         all_outages.extend(queue_outages)
     
     log("[MAIN] Total outages: " + str(len(all_outages)))
