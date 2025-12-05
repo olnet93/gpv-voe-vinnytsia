@@ -1,42 +1,47 @@
-name: Parse e-svitlo outages
+name: Parse e-svitlo Data
 
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '*/10 * * * *'  # Кожні 10 хвилин
   workflow_dispatch:
 
 jobs:
   parse:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.PAT_TOKEN }}
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-
+      
       - name: Install dependencies
         run: |
-          pip install requests cloudscraper
-
+          python -m pip install --upgrade pip
+          pip install cloudscraper
+      
       - name: Run parser
         env:
           ESVITLO_LOGIN: ${{ secrets.ESVITLO_LOGIN }}
           ESVITLO_PASSWORD: ${{ secrets.ESVITLO_PASSWORD }}
+          ESVITLO_EIC_1_1: ${{ secrets.ESVITLO_EIC_1_1 }}
+          ESVITLO_EIC_1_2: ${{ secrets.ESVITLO_EIC_1_2 }}
+          ESVITLO_EIC_2_1: ${{ secrets.ESVITLO_EIC_2_1 }}
+          ESVITLO_EIC_2_2: ${{ secrets.ESVITLO_EIC_2_2 }}
+          ESVITLO_EIC_3_1: ${{ secrets.ESVITLO_EIC_3_1 }}
+          ESVITLO_EIC_3_2: ${{ secrets.ESVITLO_EIC_3_2 }}
+          ESVITLO_EIC_4_1: ${{ secrets.ESVITLO_EIC_4_1 }}
+          ESVITLO_EIC_4_2: ${{ secrets.ESVITLO_EIC_4_2 }}
+          ESVITLO_EIC_5_1: ${{ secrets.ESVITLO_EIC_5_1 }}
+          ESVITLO_EIC_5_2: ${{ secrets.ESVITLO_EIC_5_2 }}
+          ESVITLO_EIC_6_1: ${{ secrets.ESVITLO_EIC_6_1 }}
+          ESVITLO_EIC_6_2: ${{ secrets.ESVITLO_EIC_6_2 }}
         run: python parser.py
-
+      
       - name: Commit and push
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git pull origin main --no-edit
-          git add data/Vinnytsiaoblenerho.json
-          if ! git diff --cached --quiet; then
-            git commit -m "Update outages: $(date)"
-            git push https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/olnet93/gpv-voe-vinnytsia.git
-          fi
+          git add -A
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Update e-svitlo data: $(date)" && git push)
