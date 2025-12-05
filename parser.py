@@ -1,239 +1,129 @@
 #!/usr/bin/env python3
-"""
-E-svitlo Parser - витягує дані про плановані відключення
-Для 12 черг Вінниця регіон (6 груп по 2 черги)
-"""
-import json
+# -*- coding: utf-8 -*-
+
 import os
-import time
-import sys
-from datetime import datetime, timezone, timedelta
+import json
+import requests
+from datetime import datetime
+from pathlib import Path
 
-def log(msg):
-    print(msg)
-    sys.stdout.flush()
+# Конфігурація
+LOGIN = os.getenv('ESVITLO_LOGIN')
+PASSWORD = os.getenv('ESVITLO_PASSWORD')
+EICS = os.getenv('ESVITLO_EICS', '').split(',')
 
-try:
-    import cloudscraper
-    log("OK: cloudscraper")
-except ImportError:
-    log("ERROR: cloudscraper not installed")
-    exit(1)
+BASE_URL = 'https://vn.e-svitlo.com.ua'
+API_ENDPOINT = f'{BASE_URL}/api/planned_list_cab'
 
-# 12 черг Вінниця (6 груп по 2 черги)
-QUEUE_MAPPING = {
-    "62Z7056418802433": "queue 1.1",
-    "62Z3790933130321": "queue 1.2",
-    "62Z8643921175882": "queue 2.1",
-    "62Z3250250091115": "queue 2.2",
-    "62Z122797640622H": "queue 3.1",
-    "62Z923769103674C": "queue 3.2",
-    "62Z595315443877G": "queue 4.1",
-    "62Z1881561967951": "queue 4.2",
-    "62Z7896315479246": "queue 5.1",
-    "62Z2780989447998": "queue 5.2",
-    "62Z9499016055016": "queue 6.1",
-    "62Z029828840776V": "queue 6.2"
-}
+DATA_DIR = Path('data')
+DATA_DIR.mkdir(exist_ok=True)
+OUTPUT_FILE = DATA_DIR / 'Vinnytsiaoblenerho.json'
 
-QUEUE_URLS = [
-    "https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic=62Z7056418802433&type_user=1&a=290637",
-    "https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic=62Z3790933130321&type_user=1&a=290637",
-    "https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic=62Z8643921175882&type_user=1&a=290637",
-    "https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic=62Z3250250091115&type_user=1&a=290637",
-    "https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic=62Z122797640622H&type_user=1&a=290637",
-    "https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic=62Z923769103674C&type_user=1&a=290637",
-    "https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic=62Z595315443877G&type_user=1&a=290637",
-    "https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic=62Z1881561967951&type_user=1&a=290637",
-    "https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic=62Z7896315479246&type_user=1&a=290637",
-    "https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic=62Z2780989447998&type_user=1&a=290637",
-    "https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic=62Z9499016055016&type_user=1&a=290637",
-    "https://vn.e-svitlo.com.ua/account_household/show_only_disconnections?eic=62Z029828840776V&type_user=1&a=290637"
-]
+session = requests.Session()
 
-LOGIN = os.getenv("ESVITLO_LOGIN")
-PASSWORD = os.getenv("ESVITLO_PASSWORD")
-
-log("LOGIN: " + str(bool(LOGIN)))
-log("PASSWORD: " + str(bool(PASSWORD)))
-
-if not LOGIN or not PASSWORD:
-    log("ERROR: No credentials provided")
-    exit(1)
-
-# Kyiv timezone (UTC+2 in winter, UTC+3 in summer)
-KYIV_TZ = timezone(timedelta(hours=2))
-
-def create_scraper():
-    """Створити scraper з anti-Cloudflare headers"""
-    scraper = cloudscraper.create_scraper()
-    scraper.headers.update({
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'application/json',
-        'Accept-Language': 'uk,ru;q=0.9,en-US;q=0.8,en;q=0.7',
-    })
-    return scraper
-
-def login(scraper):
-    """Залогінитися на e-svitlo.com.ua"""
-    log("[LOGIN] Starting authentication")
-    
-    try:
-        cf = scraper.get("https://vn.e-svitlo.com.ua/", timeout=30)
-        log("[LOGIN] CF challenge: " + str(cf.status_code))
-    except Exception as e:
-        log("[LOGIN] CF error: " + str(e))
-    
-    time.sleep(1)
+def authenticate():
+    """Авторизація через multipart/form-data"""
+    auth_url = f'{BASE_URL}/api/auth'
     
     data = {
-        "email": LOGIN,
-        "password": PASSWORD,
+        'login': LOGIN,
+        'password': PASSWORD
     }
     
-    headers = {
-        "Origin": "https://vn.e-svitlo.com.ua",
-        "Referer": "https://vn.e-svitlo.com.ua/user_register",
-        "Content-Type": "application/x-www-form-urlencoded",
-    }
-    
-    resp = scraper.post(
-        "https://vn.e-svitlo.com.ua/registr_all_user/login_all_user",
-        data=data,
-        headers=headers,
-        allow_redirects=True,
-        timeout=30,
-    )
-    
-    log("[LOGIN] Response: " + str(resp.status_code))
-    log("[LOGIN] URL: " + resp.url)
-    
-    is_logged_in = "Вихід" in resp.text or "logout" in resp.text.lower()
-    log("[LOGIN] Authenticated: " + str(is_logged_in))
-    
-    time.sleep(2)
-    return scraper
-
-def activate_session(scraper):
-    """Активувати сесію перед парсингом черг"""
-    log("[SESSION] Activating session")
     try:
-        cabinet_response = scraper.get("https://vn.e-svitlo.com.ua/account_household", timeout=30, allow_redirects=True)
-        log("[SESSION] Cabinet status: " + str(cabinet_response.status_code))
-        
-        cookies_dict = scraper.cookies.get_dict()
-        log("[SESSION] Cookies: " + str(len(cookies_dict)))
-        
-        time.sleep(1)
+        response = session.post(auth_url, data=data)
+        if response.status_code == 200:
+            print("✅ Авторизація успішна")
+            return True
+        else:
+            print(f"❌ Помилка авторизації: {response.status_code}")
+            return False
     except Exception as e:
-        log("[SESSION] Error: " + str(e))
+        print(f"❌ Помилка підключення: {e}")
+        return False
 
-def get_queue_name(eic):
-    """Отримати назву черги за EIC"""
-    return QUEUE_MAPPING.get(eic, "unknown")
-
-def parse_queue(scraper, url, queue_idx):
-    """Парсити одну чергу"""
+def fetch_schedules(eic):
+    """Отримати графік для конкретного EIC"""
     try:
-        time.sleep(1)
+        params = {'eic': eic}
+        response = session.get(API_ENDPOINT, params=params, timeout=10)
         
-        # Витягнути EIC з URL для логування
-        eic_match = url.split("eic=")[1].split("&")[0]
-        queue_name = get_queue_name(eic_match)
+        if response.status_code == 200:
+            data = response.json()
+            if data and 'planned_list_cab' in data:
+                return data['planned_list_cab']
         
-        log("[Q" + str(queue_idx) + "] " + queue_name + " Fetching...")
-        
-        response = scraper.get(url, timeout=30, allow_redirects=True)
-        
-        log("[Q" + str(queue_idx) + "] Status: " + str(response.status_code))
-        
-        if response.status_code != 200:
-            log("[Q" + str(queue_idx) + "] ERROR: Status " + str(response.status_code))
-            return []
-        
-        try:
-            data = json.loads(response.text)
-        except json.JSONDecodeError as e:
-            log("[Q" + str(queue_idx) + "] JSON decode error: " + str(e))
-            return []
-        
-        planned_list = data.get('planned_list_cab', [])
-        log("[Q" + str(queue_idx) + "] Found: " + str(len(planned_list)) + " outages")
-        
-        outages = []
-        for item in planned_list:
-            if isinstance(item, dict):
-                outages.append({
-                    'queue': queue_name,
-                    'acc_begin': item.get('acc_begin', ''),
-                    'accend_plan': item.get('accend_plan', ''),
-                    'typeid': item.get('typeid', '')
-                })
-        
-        log("[Q" + str(queue_idx) + "] Parsed: " + str(len(outages)) + " records")
-        return outages
-        
+        return []
     except Exception as e:
-        log("[Q" + str(queue_idx) + "] EXCEPTION: " + str(e)[:100])
+        print(f"⚠️ Помилка при отриманні даних для {eic}: {e}")
         return []
 
-def save_results(all_outages):
-    """Зберегти результати у JSON"""
-    log("[SAVE] Writing Vinnytsiaoblenerho.json")
-    
-    # Отримати поточний час у Kyiv timezone для last_updated
-    kyiv_now = datetime.now(KYIV_TZ)
-    
-    # Форматуємо як строку без таймзони (YYYY-MM-DDTHH:MM:SS)
-    last_updated_str = kyiv_now.strftime('%Y-%m-%dT%H:%M:%S')
-    
-    result = {
-        "last_updated": last_updated_str,
-        "total_outages": len(all_outages),
-        "outages": all_outages
+def parse_all_eics():
+    """Парсити дані для всіх EIC"""
+    all_data = {
+        "region": "Вінницька область",
+        "updated_at": datetime.now().isoformat(),
+        "schedules": []
     }
     
-    # Створити папку data якщо не існує
-    data_dir = "data"
-    if not os.path.exists(data_dir):
-        os.makedirs(data_dir)
-        log("[SAVE] Created directory: " + data_dir)
+    if not EICS or EICS == ['']:
+        print("⚠️ Не задано ESVITLO_EICS. Використовую дефолтні...")
+        EICS = [
+            '62Z2780989447998',
+        ]
     
-    # Записати файл у папку data
-    file_path = os.path.join(data_dir, "Vinnytsiaoblenerho.json")
-    with open(file_path, "w", encoding="utf-8") as f:
-        json.dump(result, f, ensure_ascii=False, indent=2)
+    for eic in EICS:
+        eic = eic.strip()
+        if not eic:
+            continue
+        
+        print(f"📡 Отримую дані для {eic}...")
+        schedules = fetch_schedules(eic)
+        
+        if schedules:
+            for schedule in schedules:
+                all_data['schedules'].append({
+                    'typeId': schedule.get('typeId'),
+                    'accBegin': schedule.get('accBegin'),
+                    'accEndPlan': schedule.get('accEndPlan')
+                })
+            print(f"✅ {eic}: {len(schedules)} записів")
+        else:
+            print(f"⚠️ {eic}: немає даних")
     
-    log("[SAVE] Success: " + str(len(all_outages)) + " outages saved to " + file_path)
+    return all_data
+
+def save_data(data):
+    """Зберегти дані у JSON"""
+    try:
+        with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        print(f"✅ Дані збережені: {OUTPUT_FILE}")
+        return True
+    except Exception as e:
+        print(f"❌ Помилка запису файлу: {e}")
+        return False
 
 def main():
-    log("=" * 70)
-    log("E-SVITLO PARSER - START")
-    log("=" * 70)
+    print("🔌 Вінниця e-svitlo Parser")
+    print("=" * 50)
     
-    scraper = create_scraper()
-    login(scraper)
-    activate_session(scraper)
+    if not LOGIN or not PASSWORD:
+        print("❌ Не задано ESVITLO_LOGIN або ESVITLO_PASSWORD")
+        return
     
-    log("[MAIN] Parsing 12 queues...")
-    all_outages = []
+    if not authenticate():
+        return
     
-    for idx, url in enumerate(QUEUE_URLS, 1):
-        queue_outages = parse_queue(scraper, url, idx)
-        all_outages.extend(queue_outages)
+    print("\n📊 Отримування графіків...")
+    data = parse_all_eics()
     
-    log("[MAIN] Total outages: " + str(len(all_outages)))
-    save_results(all_outages)
+    print(f"\n💾 Всього записів: {len(data['schedules'])}")
     
-    log("=" * 70)
-    log("DONE")
-    log("=" * 70)
+    if save_data(data):
+        print("✅ Парсинг завершено успішно!")
+    else:
+        print("❌ Помилка під час збереження")
 
-if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        log("[MAIN] FATAL ERROR: " + str(e))
-        import traceback
-        traceback.print_exc()
-        exit(1)
+if __name__ == '__main__':
+    main()
