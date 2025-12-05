@@ -7,8 +7,7 @@ import json
 import os
 import time
 import sys
-from datetime import datetime
-import pytz
+from datetime import datetime, timezone, timedelta
 
 def log(msg):
     print(msg)
@@ -62,8 +61,8 @@ if not LOGIN or not PASSWORD:
     log("ERROR: No credentials provided")
     exit(1)
 
-# Kyiv timezone
-KYIV_TZ = pytz.timezone('Europe/Kyiv')
+# Kyiv timezone (UTC+2 in winter, UTC+3 in summer)
+KYIV_TZ = timezone(timedelta(hours=2))
 
 def create_scraper():
     """Створити scraper з anti-Cloudflare headers"""
@@ -142,7 +141,7 @@ def convert_to_kyiv_time(iso_str):
         # Парсимо ISO datetime
         dt = datetime.fromisoformat(iso_str.replace('Z', '+00:00'))
         
-        # Конвертуємо до Kyiv timezone
+        # Конвертуємо до Kyiv timezone (UTC+2)
         kyiv_dt = dt.astimezone(KYIV_TZ)
         
         # Повертаємо у ISO формату
