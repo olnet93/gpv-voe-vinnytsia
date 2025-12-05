@@ -132,24 +132,6 @@ def get_queue_name(eic):
     """Отримати назву черги за EIC"""
     return QUEUE_MAPPING.get(eic, "unknown")
 
-def convert_to_kyiv_time(iso_str):
-    """Конвертувати ISO datetime до Kyiv timezone"""
-    if not iso_str:
-        return iso_str
-    
-    try:
-        # Парсимо ISO datetime
-        dt = datetime.fromisoformat(iso_str.replace('Z', '+00:00'))
-        
-        # Конвертуємо до Kyiv timezone (UTC+2)
-        kyiv_dt = dt.astimezone(KYIV_TZ)
-        
-        # Повертаємо у ISO формату
-        return kyiv_dt.isoformat()
-    except Exception as e:
-        log("ERROR converting datetime: " + str(e))
-        return iso_str
-
 def parse_queue(scraper, url, queue_idx):
     """Парсити одну чергу"""
     try:
@@ -183,8 +165,8 @@ def parse_queue(scraper, url, queue_idx):
             if isinstance(item, dict):
                 outages.append({
                     'queue': queue_name,
-                    'acc_begin': convert_to_kyiv_time(item.get('acc_begin', '')),
-                    'accend_plan': convert_to_kyiv_time(item.get('accend_plan', '')),
+                    'acc_begin': item.get('acc_begin', ''),
+                    'accend_plan': item.get('accend_plan', ''),
                     'typeid': item.get('typeid', '')
                 })
         
@@ -197,22 +179,32 @@ def parse_queue(scraper, url, queue_idx):
 
 def save_results(all_outages):
     """Зберегти результати у JSON"""
-    log("[SAVE] Writing outages.json")
+    log("[SAVE] Writing Vinnytsiaoblenerho.json")
     
-    # Отримати поточний час у Kyiv timezone
+    # Отримати поточний час у Kyiv timezone для last_updated
     kyiv_now = datetime.now(KYIV_TZ)
     
+    # Форматуємо як строку без таймзони (YYYY-MM-DDTHH:MM:SS)
+    last_updated_str = kyiv_now.strftime('%Y-%m-%dT%H:%M:%S')
+    
     result = {
-        "last_updated": kyiv_now.isoformat(),
-        "timezone": "Europe/Kyiv",
+        "last_updated": last_updated_str,
         "total_outages": len(all_outages),
         "outages": all_outages
     }
     
-    with open("outages.json", "w", encoding="utf-8") as f:
+    # Створити папку data якщо не існує
+    data_dir = "data"
+    if not os.path.exists(data_dir):
+        os.makedirs(data_dir)
+        log("[SAVE] Created directory: " + data_dir)
+    
+    # Записати файл у папку data
+    file_path = os.path.join(data_dir, "Vinnytsiaoblenerho.json")
+    with open(file_path, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
     
-    log("[SAVE] Success: " + str(len(all_outages)) + " outages saved")
+    log("[SAVE] Success: " + str(len(all_outages)) + " outages saved to " + file_path)
 
 def main():
     log("=" * 70)
