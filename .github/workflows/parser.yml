@@ -35,7 +35,7 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git pull origin main --no-edit
-          data/Vinnytsiaoblenerho.json
+          git add data/Vinnytsiaoblenerho.json
           if ! git diff --cached --quiet; then
             git commit -m "Update outages: $(date)"
             git push https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/olnet93/gpv-voe-vinnytsia.git
