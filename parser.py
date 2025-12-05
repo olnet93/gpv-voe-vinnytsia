@@ -8,6 +8,7 @@ import os
 import time
 import sys
 from datetime import datetime
+import pytz
 
 def log(msg):
     print(msg)
@@ -60,6 +61,9 @@ log("PASSWORD: " + str(bool(PASSWORD)))
 if not LOGIN or not PASSWORD:
     log("ERROR: No credentials provided")
     exit(1)
+
+# Kyiv timezone
+KYIV_TZ = pytz.timezone('Europe/Kyiv')
 
 def create_scraper():
     """Створити scraper з anti-Cloudflare headers"""
@@ -129,6 +133,24 @@ def get_queue_name(eic):
     """Отримати назву черги за EIC"""
     return QUEUE_MAPPING.get(eic, "unknown")
 
+def convert_to_kyiv_time(iso_str):
+    """Конвертувати ISO datetime до Kyiv timezone"""
+    if not iso_str:
+        return iso_str
+    
+    try:
+        # Парсимо ISO datetime
+        dt = datetime.fromisoformat(iso_str.replace('Z', '+00:00'))
+        
+        # Конвертуємо до Kyiv timezone
+        kyiv_dt = dt.astimezone(KYIV_TZ)
+        
+        # Повертаємо у ISO формату
+        return kyiv_dt.isoformat()
+    except Exception as e:
+        log("ERROR converting datetime: " + str(e))
+        return iso_str
+
 def parse_queue(scraper, url, queue_idx):
     """Парсити одну чергу"""
     try:
@@ -161,12 +183,10 @@ def parse_queue(scraper, url, queue_idx):
         for item in planned_list:
             if isinstance(item, dict):
                 outages.append({
-                    'eic': item.get('eic', ''),
                     'queue': queue_name,
-                    'acc_begin': item.get('acc_begin', ''),
-                    'accend_plan': item.get('accend_plan', ''),
-                    'typeid': item.get('typeid', ''),
-                    'address': item.get('address', '')
+                    'acc_begin': convert_to_kyiv_time(item.get('acc_begin', '')),
+                    'accend_plan': convert_to_kyiv_time(item.get('accend_plan', '')),
+                    'typeid': item.get('typeid', '')
                 })
         
         log("[Q" + str(queue_idx) + "] Parsed: " + str(len(outages)) + " records")
@@ -180,8 +200,12 @@ def save_results(all_outages):
     """Зберегти результати у JSON"""
     log("[SAVE] Writing outages.json")
     
+    # Отримати поточний час у Kyiv timezone
+    kyiv_now = datetime.now(KYIV_TZ)
+    
     result = {
-        "last_updated": datetime.now().isoformat(),
+        "last_updated": kyiv_now.isoformat(),
+        "timezone": "Europe/Kyiv",
         "total_outages": len(all_outages),
         "outages": all_outages
     }
