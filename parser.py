@@ -206,6 +206,8 @@ def parse_queue(scraper, url, queue_key, queue_idx):
         outages = []
         for item in planned_list:
             if isinstance(item, dict):
+                if item.get('accidentid', -1) != 0:
+                    continue
                 outages.append({
                     'queue': queue_name,
                     'queue_key': queue_key,
@@ -220,6 +222,14 @@ def parse_queue(scraper, url, queue_key, queue_idx):
     except Exception as e:
         log("[Q" + str(queue_idx) + "] EXCEPTION: " + str(e)[:100])
         return []
+
+def round_minutes_to_half_hour(minutes):
+    """Округлює хвилини до половини години
+    
+    < 30 хвилин → 0 (XX:00)
+    >= 30 хвилин → 30 (XX:30)
+    """
+    return 30 if minutes >= 30 else 0
 
 def hour_to_slot(hour):
     """Конвертує годину в номер часового слота (1-24)
@@ -240,11 +250,13 @@ def transform_to_gpv(all_outages, kyiv_now):
     """Трансформує дані в GPV формат
     
     Залишає ТІЛЬКИ сьогодні та завтра
+    Вихідні дані вже в Kyiv timezone - без конвертації
     """
     log("[TRANSFORM] Starting transformation to GPV format")
     
     # Отримуємо сьогодні та завтра як Unix timestamps (в Kyiv timezone)
-    today_date = kyiv_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    # КРИТИЧНО: використовуємо replace з явним timezone для точного розрахунку
+    today_date = kyiv_now.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=KYIV_TZ)
     tomorrow_date = today_date + timedelta(days=1)
     
     today_ts = int(today_date.timestamp())
@@ -260,25 +272,15 @@ def transform_to_gpv(all_outages, kyiv_now):
             begin_str = outage['acc_begin']
             end_str = outage['accend_plan']
             
-            # Парсимо ISO datetime
+            # Парсимо ISO datetime (дані вже в Kyiv timezone)
             begin_dt = datetime.fromisoformat(begin_str)
             end_dt = datetime.fromisoformat(end_str)
             
-            # Якщо datetime наївний (без timezone) - припускаємо UTC
-            if begin_dt.tzinfo is None:
-                begin_dt = begin_dt.replace(tzinfo=timezone.utc)
-            if end_dt.tzinfo is None:
-                end_dt = end_dt.replace(tzinfo=timezone.utc)
+            # Отримуємо дату як Unix timestamp
+            date_only = begin_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+            unix_ts = int(date_only.timestamp())
             
-            # Конвертуємо в Kyiv timezone
-            begin_kyiv = begin_dt.astimezone(KYIV_TZ)
-            end_kyiv = end_dt.astimezone(KYIV_TZ)
-            
-            # Отримуємо дату в Kyiv timezone як Unix timestamp
-            date_only_kyiv = begin_kyiv.replace(hour=0, minute=0, second=0, microsecond=0)
-            unix_ts = int(date_only_kyiv.timestamp())
-            
-            log(f"[TRANSFORM] Outage: {begin_str} → Kyiv: {begin_kyiv.isoformat()} → Date TS: {unix_ts}")
+            log(f"[TRANSFORM] Outage: {begin_str} → Date TS: {unix_ts}")
             
             # ФІЛЬТРУЄМО: залишаємо тільки сьогодні та завтра
             if unix_ts not in [today_ts, tomorrow_ts]:
@@ -294,10 +296,10 @@ def transform_to_gpv(all_outages, kyiv_now):
                 outages_by_date_queue[unix_ts][queue_key] = []
             
             outages_by_date_queue[unix_ts][queue_key].append({
-                'start_hour': begin_kyiv.hour,
-                'start_minute': begin_kyiv.minute,
-                'end_hour': end_kyiv.hour,
-                'end_minute': end_kyiv.minute,
+                'start_hour': begin_dt.hour,
+                'start_minute': begin_dt.minute,
+                'end_hour': end_dt.hour,
+                'end_minute': end_dt.minute,
             })
             
         except Exception as e:
@@ -371,7 +373,7 @@ def save_results(all_outages):
     fact_data = transform_to_gpv(all_outages, kyiv_now)
     
     # Отримуємо сьогоднішню дату як Unix timestamp
-    today_date = kyiv_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_date = kyiv_now.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=KYIV_TZ)
     today_ts = int(today_date.timestamp())
     
     # Створюємо структуру
