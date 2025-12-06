@@ -48,15 +48,25 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
         tomorrow_slots = tomorrow_data.get(gkey, {k: 'yes' for k in SLOTS})
         queue_name = sch_names.get(gkey, gkey)
         
-        fig, ax = plt.subplots(figsize=(22, 7), dpi=100)
-        fig.patch.set_facecolor(WHITE)
-        ax.set_facecolor(WHITE)
-        
-        # Розміри
+        # Розміри в координатах
         cell_w = 1.0      # Звичайна ширина клітинки
         cell_h = 1.0      # Звичайна висота клітинки
         label_w = 3.0     # Ліва колонка в 3 рази ширше
         header_h = 3.0    # Верхня стрічка в 3 рази вища
+        
+        # Загальні розміри таблиці
+        table_width = label_w + 24 * cell_w  # 27 одиниць
+        table_height = header_h + 2 * cell_h  # 5 одиниць
+        
+        # figsize має відповідати пропорціям таблиці
+        # Коефіцієнт масштабування: ширина 27 одиниць, висота 5 одиниць
+        # Робимо figsize пропорційним до таблиці
+        fig_width = 27  # 27 одиниці ширини
+        fig_height = 5   # 5 одиниць висоти
+        
+        fig, ax = plt.subplots(figsize=(fig_width, fig_height), dpi=100)
+        fig.patch.set_facecolor(WHITE)
+        ax.set_facecolor(WHITE)
         
         # Y позиція (зверху вниз)
         y = 0
@@ -142,12 +152,13 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
                 rect_half = Rectangle((x + cell_w/2, y), cell_w/2, cell_h, linewidth=0, facecolor=ORANGE)
                 ax.add_patch(rect_half)
         
-        ax.set_xlim(0, label_w + 24 * cell_w)
-        ax.set_ylim(0, header_h + 2 * cell_h)
-        # БЕЗ ax.set_aspect('equal') - дозволяє масштабувати без обмежень
+        # Встановлюємо межі координат ТОЧНО відповідно до таблиці
+        ax.set_xlim(0, table_width)
+        ax.set_ylim(0, table_height)
         
         ax.set_xticks([])
         ax.set_yticks([])
+        ax.margins(0)
         for spine in ax.spines.values():
             spine.set_visible(False)
         
