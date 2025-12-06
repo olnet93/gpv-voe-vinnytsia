@@ -273,7 +273,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
             output_file = Path(f"{gkey}.png")
         
         output_file.parent.mkdir(parents=True, exist_ok=True)
-        plt.savefig(output_file, facecolor=WHITE, dpi=150, bbox_inches='tight', pad_inches=0.08)
+        plt.savefig(output_file, facecolor=WHITE, dpi=150, bbox_inches='tight', pad_inches=0.10)
         print(f"[OK] {output_file}")
         plt.close()
 
