@@ -209,7 +209,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
                         linewidth=0.5, edgecolor=BORDER, facecolor=WHITE, 
                         transform=fig.transFigure, clip_on=False)
         fig.patches.append(rect)
-        fig.text(x1 + cell_w_fig/2 + 0.012, legend_y, 'Світло є', fontsize=11, va='center')
+        fig.text(x1 + cell_w_fig/2 + 0.005, legend_y, 'Світло є', fontsize=11, va='center')
         
         # Елемент 2: Повністю оранжева клітинка - "Світла нема"
         x2 = legend_x_center - 0.6 * spacing
@@ -217,7 +217,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
                         linewidth=0.5, edgecolor=BORDER, facecolor=ORANGE, 
                         transform=fig.transFigure, clip_on=False)
         fig.patches.append(rect)
-        fig.text(x2 + cell_w_fig/2 + 0.012, legend_y, 'Світла нема', fontsize=11, va='center')
+        fig.text(x2 + cell_w_fig/2 + 0.005, legend_y, 'Світла нема', fontsize=11, va='center')
         
         # Елемент 3: Ліва половина оранжева - "Світла нема перші 30 хв."
         x3 = legend_x_center + 0.6 * spacing
@@ -236,7 +236,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
                                linewidth=0.5, edgecolor=BORDER, facecolor='none', 
                                transform=fig.transFigure, clip_on=False)
         fig.patches.append(rect_border)
-        fig.text(x3 + cell_w_fig/2 + 0.012, legend_y, 'Світла нема\nперші 30 хв.', fontsize=11, va='center')
+        fig.text(x3 + cell_w_fig/2 + 0.005, legend_y, 'Світла нема\nперші 30 хв.', fontsize=11, va='center')
         
         # Елемент 4: Права половина оранжева - "Світла нема другі 30 хв."
         x4 = legend_x_center + 1.8 * spacing
@@ -255,7 +255,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
                                linewidth=0.5, edgecolor=BORDER, facecolor='none', 
                                transform=fig.transFigure, clip_on=False)
         fig.patches.append(rect_border)
-        fig.text(x4 + cell_w_fig/2 + 0.012, legend_y, 'Світла нема\nдругі 30 хв.', fontsize=11, va='center')
+        fig.text(x4 + cell_w_fig/2 + 0.005, legend_y, 'Світла нема\nдругі 30 хв.', fontsize=11, va='center')
         
         # Дата оновлення
         if last_updated:
