@@ -47,15 +47,15 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
         tomorrow_slots = tomorrow_data.get(gkey, {str(i): 'yes' for i in range(1, 25)})
         queue_name = sch_names.get(gkey, gkey)
         
-        fig, ax = plt.subplots(figsize=(20, 4), dpi=100)
+        fig, ax = plt.subplots(figsize=(20, 3.5), dpi=100)
         fig.patch.set_facecolor(WHITE)
         ax.set_facecolor(WHITE)
         
         # Розміри клітинок
         cell_w = 1.0
-        cell_h = 1.0
+        cell_h = 0.5      # В два рази менше для даних
         label_w = 2.0
-        header_h = 1.2
+        header_h = 1.2    # Залишаємо без змін
         
         # Y позиція
         y_pos = 0
