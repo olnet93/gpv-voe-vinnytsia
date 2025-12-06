@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-Schedule PNG Renderer - таблиця як HTML дизайн
+Schedule PNG Renderer - таблиця з 3 стрічками (сьогодні, завтра)
 """
 
 import json
 import argparse
 from pathlib import Path
+from datetime import datetime, timezone, timedelta
 import sys
 
 try:
     import matplotlib.pyplot as plt
-    import matplotlib.patches as mpatches
     from matplotlib.patches import Rectangle
     import numpy as np
 except ImportError:
@@ -22,12 +22,12 @@ WHITE = '#ffffff'
 LIGHT_GRAY = '#f5f5f5'
 DARK_GRAY = '#cccccc'
 BLACK = '#000000'
+HEADER_BG = '#eeeeee'
 
 SLOTS = [str(i) for i in range(1, 25)]
-HOURS = ['00:00', '01:00', '02:00', '03:00', '04:00', '05:00',
-         '06:00', '07:00', '08:00', '09:00', '10:00', '11:00',
-         '12:00', '13:00', '14:00', '15:00', '16:00', '17:00',
-         '18:00', '19:00', '20:00', '21:00', '22:00', '23:00']
+HOURS = [f'{i:02d}:00-{i+1:02d}:00' for i in range(24)]
+
+KYIV_TZ = timezone(timedelta(hours=2))
 
 def draw_cell(ax, x, y, w, h, state):
     """Малювати клітинку з заливкою"""
@@ -35,28 +35,33 @@ def draw_cell(ax, x, y, w, h, state):
     if state == 'no':
         bg = ORANGE
     elif state == 'first':
-        bg = LIGHT_GRAY  # ліва половина буде оранжева
+        bg = LIGHT_GRAY
     elif state == 'second':
-        bg = LIGHT_GRAY  # права половина буде оранжева
+        bg = LIGHT_GRAY
     else:
         bg = WHITE
     
-    # Основна клітинка
     rect = Rectangle((x, y), w, h, linewidth=1, edgecolor=DARK_GRAY, facecolor=bg)
     ax.add_patch(rect)
     
-    # Половинки для first/second
     if state == 'first':
-        # Ліва половина оранжева
         rect_left = Rectangle((x, y), w/2, h, linewidth=0, facecolor=ORANGE)
         ax.add_patch(rect_left)
     elif state == 'second':
-        # Права половина оранжева
         rect_right = Rectangle((x + w/2, y), w/2, h, linewidth=0, facecolor=ORANGE)
         ax.add_patch(rect_right)
 
-def render_schedule(json_path, gpv_key=None, day_arg=None, out_path=None):
-    """Рендерити розклад у вигляді таблиці"""
+def format_date(unix_ts):
+    """Форматувати дату у форматі '6 грудня'"""
+    months = ['січня', 'лютого', 'березня', 'квітня', 'травня', 'червня',
+              'липня', 'серпня', 'вересня', 'жовтня', 'листопада', 'грудня']
+    dt = datetime.fromtimestamp(int(unix_ts), tz=KYIV_TZ)
+    day = dt.day
+    month = months[dt.month - 1]
+    return f"{day} {month}"
+
+def render_schedule(json_path, gpv_key=None, out_path=None):
+    """Рендерити розклад з 3 стрічками"""
     
     with open(json_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
@@ -65,63 +70,82 @@ def render_schedule(json_path, gpv_key=None, day_arg=None, out_path=None):
     sch_names = data.get('preset', {}).get('sch_names', {})
     last_updated = data.get('fact', {}).get('update', '')
     today_ts = str(data.get('fact', {}).get('today'))
+    tomorrow_ts = str(int(today_ts) + 86400)
     
-    day_ts = str(int(today_ts) + 86400) if day_arg == 'tomorrow' else today_ts
-    day_data = fact_data[day_ts]
+    today_data = fact_data.get(today_ts, {})
+    tomorrow_data = fact_data.get(tomorrow_ts, {})
     
-    gpv_keys = [gpv_key] if gpv_key else sorted([k for k in day_data if k.startswith('GPV')])
+    gpv_keys = [gpv_key] if gpv_key else sorted([k for k in today_data if k.startswith('GPV')])
     
     for gkey in gpv_keys:
-        slots = day_data[gkey]
+        today_slots = today_data.get(gkey, {k: 'yes' for k in SLOTS})
+        tomorrow_slots = tomorrow_data.get(gkey, {k: 'yes' for k in SLOTS})
         queue_name = sch_names.get(gkey, gkey)
         
-        # Таблична фігура
-        fig, ax = plt.subplots(figsize=(14, 4), dpi=100)
+        # Таблична фігура з 3 стрічками
+        fig, ax = plt.subplots(figsize=(16, 5), dpi=100)
         fig.patch.set_facecolor(WHITE)
         ax.set_facecolor(WHITE)
         
         cell_w = 1
-        cell_h = 1
+        cell_h = 0.9
+        row_gap = 0.15
         
-        # Малювати слоти
-        for i, slot in enumerate(SLOTS):
-            state = slots.get(slot, 'yes')
-            draw_cell(ax, i, 0, cell_w, cell_h, state)
+        # Рядки: 0 - заголовки часів, 1 - сьогодні, 2 - завтра
+        rows = [
+            ('Часові проміжки', HOURS, 'header', None),
+            (f"6 грудня", None, 'data', today_slots),
+            (f"7 грудня", None, 'data', tomorrow_slots),
+        ]
         
-        ax.set_xlim(-0.5, 24)
-        ax.set_ylim(-0.8, 1.2)
+        y_pos = 2
+        
+        for row_label, row_data, row_type, slots_data in rows:
+            # Лівий лейбл (назва рядку)
+            rect_label = Rectangle((-1, y_pos), 0.95, cell_h, 
+                                  linewidth=1, edgecolor=DARK_GRAY, 
+                                  facecolor=HEADER_BG if row_type == 'header' else LIGHT_GRAY)
+            ax.add_patch(rect_label)
+            ax.text(-0.525, y_pos + cell_h/2, row_label, fontsize=8, 
+                   ha='center', va='center', fontweight='bold', color=BLACK)
+            
+            if row_type == 'header':
+                # Заголовок з часами
+                for i, hour_label in enumerate(HOURS):
+                    draw_cell(ax, i, y_pos, cell_w, cell_h, 'yes')
+                    ax.text(i + 0.5, y_pos + cell_h/2, hour_label, fontsize=6.5, 
+                           ha='center', va='center', color=BLACK)
+            else:
+                # Данні слотів
+                for i, slot in enumerate(SLOTS):
+                    state = slots_data.get(slot, 'yes')
+                    draw_cell(ax, i, y_pos, cell_w, cell_h, state)
+            
+            y_pos -= (cell_h + row_gap)
+        
+        ax.set_xlim(-1.2, 24)
+        ax.set_ylim(y_pos - 0.5, 2.8)
         ax.set_aspect('equal')
         
-        # Верхня вісь - години
-        ax.set_xticks(np.arange(24) + 0.5)
-        ax.set_xticklabels(HOURS, fontsize=8, rotation=0)
-        ax.tick_params(axis='x', top=True, labeltop=True, bottom=False, labelbottom=False)
-        
-        # Видалити ліву вісь
+        ax.set_xticks([])
         ax.set_yticks([])
         for spine in ax.spines.values():
             spine.set_visible(False)
         
         # Заголовок
-        title = f"Графік відключень ({queue_name})"
-        if day_arg == 'tomorrow':
-            title += " — завтра"
-        else:
-            title += " — сьогодні"
-        
+        title = f"Графік відключень: {queue_name}"
         fig.suptitle(title, fontsize=13, fontweight='bold', y=0.97)
         
         if last_updated:
-            fig.text(0.5, 0.90, f"Дата та час: {last_updated}", 
+            fig.text(0.5, 0.92, f"Дата та час останнього оновлення інформації на графіку: {last_updated}", 
                     ha='center', fontsize=8, color='#666666')
         
-        # Легенда внизу
-        ax_leg = fig.add_axes([0.08, 0.02, 0.84, 0.12])
+        # Легенда
+        ax_leg = fig.add_axes([0.08, 0.02, 0.84, 0.1])
         ax_leg.set_xlim(0, 10)
         ax_leg.set_ylim(0, 1)
         ax_leg.axis('off')
         
-        # Елементи легенди
         legends = [
             (0.3, 'yes', 'Світло є'),
             (2.2, 'no', 'Світла нема'),
@@ -135,7 +159,7 @@ def render_schedule(json_path, gpv_key=None, day_arg=None, out_path=None):
             draw_cell(ax_leg, x, 0.3, cell_size, cell_size, state)
             ax_leg.text(x + cell_size + 0.15, 0.425, label, fontsize=7.5, va='center')
         
-        plt.tight_layout(rect=[0, 0.14, 1, 0.88])
+        plt.tight_layout(rect=[0, 0.12, 1, 0.90])
         
         # Зберегти
         if out_path:
@@ -144,11 +168,9 @@ def render_schedule(json_path, gpv_key=None, day_arg=None, out_path=None):
                 output_file = out_p
             else:
                 out_p.mkdir(parents=True, exist_ok=True)
-                day_suffix = '_tomorrow' if day_arg == 'tomorrow' else '_today'
-                output_file = out_p / f"{gkey}{day_suffix}.png"
+                output_file = out_p / f"{gkey}.png"
         else:
-            day_suffix = '_tomorrow' if day_arg == 'tomorrow' else '_today'
-            output_file = Path(f"{gkey}{day_suffix}.png")
+            output_file = Path(f"{gkey}.png")
         
         output_file.parent.mkdir(parents=True, exist_ok=True)
         plt.savefig(output_file, facecolor=WHITE, dpi=150, bbox_inches='tight', pad_inches=0.05)
@@ -159,8 +181,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--json', required=True)
     parser.add_argument('--gpv', default=None)
-    parser.add_argument('--day', default='today', choices=['today', 'tomorrow'])
     parser.add_argument('--out', default=None)
     args = parser.parse_args()
     
-    render_schedule(args.json, args.gpv, args.day, args.out)
+    render_schedule(args.json, args.gpv, args.out)
