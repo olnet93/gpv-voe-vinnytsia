@@ -79,13 +79,10 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
         ax.set_facecolor(WHITE)
         
         cell_w = 1
-        header_h = 1.3  # Вища стрічка заголовків
-        data_h = 0.9    # Звичайна висота для даних
-        row_gap = 0.15
+        header_h = 1.3
+        data_h = 0.9
+        label_w = 2.0
         
-        label_w = 2.0   # Ширша ліва колонка
-        
-        # Рядки: 0 - заголовки часів, 1 - сьогодні, 2 - завтра
         y_pos = 2.3
         
         # === РЯДОК 1: Заголовки часів ===
@@ -98,11 +95,10 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
         
         for i, hour_label in enumerate(HOURS):
             draw_cell(ax, i, y_pos, cell_w, header_h, 'yes')
-            # Текст повернений на 90 градусів
             ax.text(i + 0.5, y_pos + header_h/2, hour_label, fontsize=6, 
-                   ha='center', va='center', color=BLACK, rotation=90)
+                   ha='center', va='center', color=BLACK, rotation=90, fontweight='bold')
         
-        y_pos -= (header_h + row_gap)
+        y_pos -= header_h
         
         # === РЯДОК 2: Сьогодні ===
         rect_label = Rectangle((-label_w, y_pos), label_w, data_h, 
@@ -116,7 +112,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
             state = today_slots.get(slot, 'yes')
             draw_cell(ax, i, y_pos, cell_w, data_h, state)
         
-        y_pos -= (data_h + row_gap)
+        y_pos -= data_h
         
         # === РЯДОК 3: Завтра ===
         rect_label = Rectangle((-label_w, y_pos), label_w, data_h, 
@@ -131,7 +127,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
             draw_cell(ax, i, y_pos, cell_w, data_h, state)
         
         ax.set_xlim(-label_w - 0.2, 24)
-        ax.set_ylim(y_pos - 0.5, 3.8)
+        ax.set_ylim(y_pos - 0.3, 3.8)
         ax.set_aspect('equal')
         
         ax.set_xticks([])
