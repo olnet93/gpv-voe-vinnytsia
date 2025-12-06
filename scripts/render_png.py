@@ -53,9 +53,13 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
         
         # Розміри клітинок
         cell_w = 1.0
-        cell_h = 0.5      # В два рази менше для даних
+        cell_h = 0.5
         label_w = 2.0
-        header_h = 1.2    # Залишаємо без змін
+        header_h = 1.2
+        
+        # Розміри таблиці для вирівнювання
+        table_width = label_w + 24 * cell_w  # 26 одиниць
+        table_height = header_h + 2 * cell_h
         
         # Y позиція
         y_pos = 0
@@ -149,8 +153,8 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
             rect_border = Rectangle((x, y_pos), cell_w, cell_h, linewidth=1, edgecolor=BORDER, facecolor='none')
             ax.add_patch(rect_border)
         
-        ax.set_xlim(0, label_w + 24 * cell_w)
-        ax.set_ylim(0, header_h + 2 * cell_h)
+        ax.set_xlim(0, table_width)
+        ax.set_ylim(0, table_height)
         ax.invert_yaxis()
         
         ax.set_xticks([])
@@ -159,19 +163,25 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
         for spine in ax.spines.values():
             spine.set_visible(False)
         
-        # Заголовок
-        fig.text(0.05, 0.96, 'Графік відключень:', fontsize=14, fontweight='bold')
+        # === ПОЗИЦІОНУВАННЯ ЕЛЕМЕНТІВ НА РИСУНКУ ===
+        # Таблиця займає приблизно (0.05, 0.15, 0.9, 0.85) у координатах фігури
+        # Переводимо в координати даних
+        
+        # Заголовок "Графік відключень:" 
+        # Початок на межі початку таблиці (x = 0)
+        fig.text(0.05, 0.95, 'Графік відключень:', fontsize=14, fontweight='bold')
         
         # Етикетка черги
-        fig.text(0.92, 0.93, queue_name, fontsize=11, fontweight='bold',
-                bbox=dict(boxstyle='round,pad=0.5', facecolor='#FFD700', edgecolor='#000000', linewidth=1.5))
+        # Закінчення на межі кінця таблиці (x = table_width)
+        fig.text(0.95, 0.93, queue_name, fontsize=11, fontweight='bold',
+                bbox=dict(boxstyle='round,pad=0.5', facecolor='#FFD700', edgecolor='#000000', linewidth=1.5),
+                ha='right')
         
-        # Легенда
+        # Легенда - вирівняти по центру таблиці
         legend_y = 0.08
-        fig.text(0.05, legend_y, '□ Світло є', fontsize=7)
-        fig.text(0.18, legend_y, '■ Світла нема', fontsize=7)
-        fig.text(0.33, legend_y, '■□ Світла нема перші 30 хв.', fontsize=7)
-        fig.text(0.55, legend_y, '□■ Світла нема другі 30 хв.', fontsize=7)
+        # Центр таблиці = 0.5 (ширина фігури від 0.05 до 0.95, центр = 0.5)
+        fig.text(0.5, legend_y, '□ Світло є    ■ Світла нема    ■□ Перші 30 хв.    □■ Другі 30 хв.', 
+                fontsize=7, ha='center')
         
         # Дата оновлення
         if last_updated:
