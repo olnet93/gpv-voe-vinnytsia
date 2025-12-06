@@ -4,7 +4,7 @@ E-svitlo Parser - витягує дані про плановані відклю
 Для 12 черг Вінниця регіон (6 груп по 2 черги)
 EIC значення прикриті через GitHub Secrets
 Трансформує дані в формат GPV
-Гарантує наявність сьогодні + завтра з усіма чергами
+Залишає тільки сьогодні та завтра
 """
 import json
 import os
@@ -239,18 +239,18 @@ def create_empty_slots():
 def transform_to_gpv(all_outages, kyiv_now):
     """Трансформує дані в GPV формат
     
-    Гарантує наявність сьогодні та завтра з усіма 12 чергами
+    Залишає ТІЛЬКИ сьогодні та завтра
     """
     log("[TRANSFORM] Starting transformation to GPV format")
     
-    # Отримуємо сьогодні та завтра як Unix timestamps
+    # Отримуємо сьогодні та завтра як Unix timestamps (в Kyiv timezone)
     today_date = kyiv_now.replace(hour=0, minute=0, second=0, microsecond=0)
     tomorrow_date = today_date + timedelta(days=1)
     
     today_ts = int(today_date.timestamp())
     tomorrow_ts = int(tomorrow_date.timestamp())
     
-    log(f"[TRANSFORM] Today: {today_ts}, Tomorrow: {tomorrow_ts}")
+    log(f"[TRANSFORM] Today: {today_ts} ({today_date}), Tomorrow: {tomorrow_ts} ({tomorrow_date})")
     
     # Групуємо вимкнення за датою та чергою
     outages_by_date_queue = {}
@@ -260,12 +260,30 @@ def transform_to_gpv(all_outages, kyiv_now):
             begin_str = outage['acc_begin']
             end_str = outage['accend_plan']
             
+            # Парсимо ISO datetime
             begin_dt = datetime.fromisoformat(begin_str)
             end_dt = datetime.fromisoformat(end_str)
             
-            # Отримуємо Unix timestamp дня (початок дня в UTC)
-            date_only = begin_dt.replace(hour=0, minute=0, second=0, microsecond=0)
-            unix_ts = int(date_only.timestamp())
+            # Якщо datetime наївний (без timezone) - припускаємо UTC
+            if begin_dt.tzinfo is None:
+                begin_dt = begin_dt.replace(tzinfo=timezone.utc)
+            if end_dt.tzinfo is None:
+                end_dt = end_dt.replace(tzinfo=timezone.utc)
+            
+            # Конвертуємо в Kyiv timezone
+            begin_kyiv = begin_dt.astimezone(KYIV_TZ)
+            end_kyiv = end_dt.astimezone(KYIV_TZ)
+            
+            # Отримуємо дату в Kyiv timezone як Unix timestamp
+            date_only_kyiv = begin_kyiv.replace(hour=0, minute=0, second=0, microsecond=0)
+            unix_ts = int(date_only_kyiv.timestamp())
+            
+            log(f"[TRANSFORM] Outage: {begin_str} → Kyiv: {begin_kyiv.isoformat()} → Date TS: {unix_ts}")
+            
+            # ФІЛЬТРУЄМО: залишаємо тільки сьогодні та завтра
+            if unix_ts not in [today_ts, tomorrow_ts]:
+                log(f"[TRANSFORM] Skipping outage from {unix_ts} (not today or tomorrow)")
+                continue
             
             if unix_ts not in outages_by_date_queue:
                 outages_by_date_queue[unix_ts] = {}
@@ -276,26 +294,20 @@ def transform_to_gpv(all_outages, kyiv_now):
                 outages_by_date_queue[unix_ts][queue_key] = []
             
             outages_by_date_queue[unix_ts][queue_key].append({
-                'start_hour': begin_dt.hour,
-                'start_minute': begin_dt.minute,
-                'end_hour': end_dt.hour,
-                'end_minute': end_dt.minute,
+                'start_hour': begin_kyiv.hour,
+                'start_minute': begin_kyiv.minute,
+                'end_hour': end_kyiv.hour,
+                'end_minute': end_kyiv.minute,
             })
             
         except Exception as e:
             log("[TRANSFORM] Error processing outage: " + str(e))
     
-    # Збудуємо структуру з гарантією сьогодні + завтра
+    # Збудуємо структуру з гарантією сьогодні + завтра (тільки ці 2 дати)
     fact_data = {}
     
-    # Обробляємо кожну дату що була в даних
-    all_dates = sorted(set(outages_by_date_queue.keys()))
-    
-    # Гарантуємо наявність сьогодні та завтра
-    required_dates = [today_ts, tomorrow_ts]
-    all_dates_with_required = sorted(set(all_dates + required_dates))
-    
-    for unix_ts in all_dates_with_required:
+    # Обробляємо дати у зворотному порядку (сьогодні першим)
+    for unix_ts in [today_ts, tomorrow_ts]:
         fact_data[str(unix_ts)] = {}
         
         # Для кожної черги
