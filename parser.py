@@ -250,12 +250,11 @@ def transform_to_gpv(all_outages, kyiv_now):
     """Трансформує дані в GPV формат
     
     Залишає ТІЛЬКИ сьогодні та завтра
-    Вихідні дані вже в Kyiv timezone - без конвертації
+    Округлює хвилини до половини години для розрахунку слотів
     """
     log("[TRANSFORM] Starting transformation to GPV format")
     
     # Отримуємо сьогодні та завтра як Unix timestamps (в Kyiv timezone)
-    # КРИТИЧНО: використовуємо replace з явним timezone для точного розрахунку
     today_date = kyiv_now.replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=KYIV_TZ)
     tomorrow_date = today_date + timedelta(days=1)
     
@@ -272,9 +271,10 @@ def transform_to_gpv(all_outages, kyiv_now):
             begin_str = outage['acc_begin']
             end_str = outage['accend_plan']
             
-            # Парсимо ISO datetime (дані вже в Kyiv timezone)
-            begin_dt = datetime.fromisoformat(begin_str)
-            end_dt = datetime.fromisoformat(end_str)
+            # Парсимо ISO datetime
+            # КРИТИЧНО: дані без таймзони, припускаємо Kyiv timezone
+            begin_dt = datetime.fromisoformat(begin_str).replace(tzinfo=KYIV_TZ)
+            end_dt = datetime.fromisoformat(end_str).replace(tzinfo=KYIV_TZ)
             
             # Отримуємо дату як Unix timestamp
             date_only = begin_dt.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -302,24 +302,24 @@ def transform_to_gpv(all_outages, kyiv_now):
                 'end_minute': end_dt.minute,
             })
             
+            log(f"[TRANSFORM] Parsed: {begin_dt.hour:02d}:{begin_dt.minute:02d} - {end_dt.hour:02d}:{end_dt.minute:02d}")
+            
         except Exception as e:
             log("[TRANSFORM] Error processing outage: " + str(e))
     
-    # Збудуємо структуру з гарантією сьогодні + завтра (тільки ці 2 дати)
+    # Збудуємо структуру з гарантією сьогодні + завтра
     fact_data = {}
     
-    # Обробляємо дати у зворотному порядку (сьогодні першим)
     for unix_ts in [today_ts, tomorrow_ts]:
         fact_data[str(unix_ts)] = {}
         
-        # Для кожної черги
         for queue_key in ALL_QUEUE_KEYS:
             gpv_key = QUEUE_TO_GPV.get(queue_key)
             
             # Ініціалізуємо всі слоти як "yes"
             slots = create_empty_slots()
             
-            # Якщо є вимкнення для цієї черги в цей день - обробляємо
+            # Якщо є вимкнення для цієї черги в цей день
             if unix_ts in outages_by_date_queue and queue_key in outages_by_date_queue[unix_ts]:
                 for outage in outages_by_date_queue[unix_ts][queue_key]:
                     start_hour = outage['start_hour']
@@ -330,27 +330,32 @@ def transform_to_gpv(all_outages, kyiv_now):
                     # Конвертуємо години в слоти
                     start_slot = hour_to_slot(start_hour)
                     
-                    # Якщо закінчується на межі години (XX:00)
-                    if end_minute == 0:
-                        end_slot = hour_to_slot(end_hour)
-                    else:
-                        # Закінчується в половині години
-                        end_slot = hour_to_slot(end_hour) + 1
+                    # Округлюємо кінцеві хвилини
+                    rounded_end_minute = round_minutes_to_half_hour(end_minute)
                     
-                    log(f"[TRANSFORM] {gpv_key} ({unix_ts}): {start_hour}:{start_minute:02d}-{end_hour}:{end_minute:02d} → слоти {start_slot}-{end_slot-1}")
+                    # Якщо після округлення = 30, вимкнення йде до наступної години
+                    if rounded_end_minute == 30:
+                        actual_end_hour = end_hour + 1
+                    else:
+                        actual_end_hour = end_hour
+                    
+                    end_slot = hour_to_slot(actual_end_hour)
+                    
+                    log(f"[TRANSFORM] {gpv_key} ({unix_ts}): {start_hour:02d}:{start_minute:02d}-{end_hour:02d}:{end_minute:02d} → слоти {start_slot}-{end_slot-1}")
                     
                     # Заповнюємо слоти з "no"
                     for slot in range(start_slot, end_slot):
                         if slot <= 24:
                             slots[str(slot)] = "no"
                     
-                    # Якщо закінчується в половині години - останній слот "second"
-                    if end_minute > 0 and end_slot <= 24:
-                        slots[str(end_slot)] = "second"
-                    
-                    # Якщо починається в половині години - перший слот "first"
-                    if start_minute > 0:
+                    # Логіка first/second
+                    # 'first': якщо вимкнення починається в половині години
+                    if start_minute == 30 and start_slot <= 24:
                         slots[str(start_slot)] = "first"
+                    
+                    # 'first': якщо вимкнення закінчується в половині години
+                    if end_minute >= 30 and end_slot - 1 <= 24:
+                        slots[str(end_slot - 1)] = "first"
             
             fact_data[str(unix_ts)][gpv_key] = slots
     
