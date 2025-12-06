@@ -59,8 +59,6 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
         table_height = header_h + 2 * cell_h  # 5 одиниць
         
         # figsize має відповідати пропорціям таблиці
-        # Коефіцієнт масштабування: ширина 27 одиниць, висота 5 одиниць
-        # Робимо figsize пропорційним до таблиці
         fig_width = 27  # 27 одиниці ширини
         fig_height = 5   # 5 одиниць висоти
         
@@ -68,10 +66,11 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
         fig.patch.set_facecolor(WHITE)
         ax.set_facecolor(WHITE)
         
-        # Y позиція (зверху вниз)
-        y = 0
+        # Y позиція (зверху вниз, але в matplotlib це перевернуто)
+        # Тому розраховуємо від низу вгору
+        y = table_height - header_h  # Стрічка часів починається внизу (у matplotlib координатах)
         
-        # === РЯДОК 0: Заголовки часів ===
+        # === РЯДОК 0: Заголовки часів (ВЕРХНЯ стрічка) ===
         # Ліва клітинка (лейбл "Часові проміжки")
         rect = Rectangle((0, y), label_w, header_h, linewidth=1, edgecolor=DARK_GRAY, facecolor=HEADER_BG)
         ax.add_patch(rect)
@@ -86,7 +85,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
             ax.text(x + cell_w/2, y + header_h/2, HOURS[i], fontsize=6, ha='center', va='center',
                    color=BLACK, rotation=90, fontweight='bold')
         
-        y += header_h
+        y -= header_h  # Переходимо нижче
         
         # === РЯДОК 1: Сьогодні ===
         # Ліва клітинка (лейбл "6 грудня")
@@ -119,7 +118,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
                 rect_half = Rectangle((x + cell_w/2, y), cell_w/2, cell_h, linewidth=0, facecolor=ORANGE)
                 ax.add_patch(rect_half)
         
-        y += cell_h
+        y -= cell_h
         
         # === РЯДОК 2: Завтра ===
         # Ліва клітинка (лейбл "7 грудня")
@@ -152,9 +151,10 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
                 rect_half = Rectangle((x + cell_w/2, y), cell_w/2, cell_h, linewidth=0, facecolor=ORANGE)
                 ax.add_patch(rect_half)
         
-        # Встановлюємо межі координат ТОЧНО відповідно до таблиці
+        # Встановлюємо межі координат
         ax.set_xlim(0, table_width)
         ax.set_ylim(0, table_height)
+        ax.invert_yaxis()  # Перевернемо вісь Y щоб верхня стрічка була зверху
         
         ax.set_xticks([])
         ax.set_yticks([])
