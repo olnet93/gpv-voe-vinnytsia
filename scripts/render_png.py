@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """
-Schedule PNG Renderer - таблиця з 3 стрічками (сьогодні, завтра)
+Schedule PNG Renderer - таблиця 3x24 без пробілів
 """
 
 import json
 import argparse
 from pathlib import Path
-from datetime import datetime, timezone, timedelta
 import sys
 
 try:
@@ -26,30 +25,6 @@ HEADER_BG = '#eeeeee'
 
 SLOTS = [str(i) for i in range(1, 25)]
 HOURS = [f'{i:02d}:00-{i+1:02d}:00' for i in range(24)]
-
-KYIV_TZ = timezone(timedelta(hours=2))
-
-def draw_cell(ax, x, y, w, h, state):
-    """Малювати клітинку з заливкою"""
-    
-    if state == 'no':
-        bg = ORANGE
-    elif state == 'first':
-        bg = LIGHT_GRAY
-    elif state == 'second':
-        bg = LIGHT_GRAY
-    else:
-        bg = WHITE
-    
-    rect = Rectangle((x, y), w, h, linewidth=1, edgecolor=DARK_GRAY, facecolor=bg)
-    ax.add_patch(rect)
-    
-    if state == 'first':
-        rect_left = Rectangle((x, y), w/2, h, linewidth=0, facecolor=ORANGE)
-        ax.add_patch(rect_left)
-    elif state == 'second':
-        rect_right = Rectangle((x + w/2, y), w/2, h, linewidth=0, facecolor=ORANGE)
-        ax.add_patch(rect_right)
 
 def render_schedule(json_path, gpv_key=None, out_path=None):
     """Рендерити розклад з 3 стрічками"""
@@ -73,99 +48,172 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
         tomorrow_slots = tomorrow_data.get(gkey, {k: 'yes' for k in SLOTS})
         queue_name = sch_names.get(gkey, gkey)
         
-        # Таблична фігура
-        fig = plt.figure(figsize=(18, 5))
-        fig.patch.set_facecolor(WHITE)
+        # Створимо NumPy масив для таблиці
+        # 3 рядки, 25 колонок (перша - лейбли, потім 24 слоти)
+        table = np.zeros((3, 25, 3), dtype=np.uint8)  # RGB для кожної клітинки
         
-        ax = fig.add_subplot(111)
-        ax.set_facecolor(WHITE)
+        # Функція для конвертування кольору RGB у numpy значення
+        def color_to_rgb(color_hex):
+            color_hex = color_hex.lstrip('#')
+            return tuple(int(color_hex[i:i+2], 16) for i in (0, 2, 4))
         
-        cell_w = 1
-        header_h = 1.3
-        data_h = 0.9
-        label_w = 2.0
+        colors = {
+            'yes': color_to_rgb(WHITE),
+            'no': color_to_rgb(ORANGE),
+            'first': color_to_rgb(LIGHT_GRAY),
+            'second': color_to_rgb(LIGHT_GRAY),
+            'header': color_to_rgb(HEADER_BG),
+            'label': color_to_rgb(LIGHT_GRAY)
+        }
         
-        y_pos = 2.2
+        # РЯДОК 0: Заголовки
+        # Колонка 0: Лейбл "Часові проміжки"
+        table[0, 0] = colors['header']
         
-        # === РЯДОК 1: Заголовки часів ===
-        rect_label = Rectangle((-label_w, y_pos), label_w, header_h, 
-                              linewidth=1, edgecolor=DARK_GRAY, 
-                              facecolor=HEADER_BG)
-        ax.add_patch(rect_label)
-        ax.text(-label_w/2, y_pos + header_h/2, 'Часові проміжки', fontsize=9, 
-               ha='center', va='center', fontweight='bold', color=BLACK)
+        # Колонки 1-24: Години
+        for i in range(24):
+            table[0, i+1] = colors['header']
         
-        for i, hour_label in enumerate(HOURS):
-            draw_cell(ax, i, y_pos, cell_w, header_h, 'yes')
-            ax.text(i + 0.5, y_pos + header_h/2, hour_label, fontsize=6, 
-                   ha='center', va='center', color=BLACK, rotation=90, fontweight='bold')
+        # РЯДОК 1: Сьогодні
+        # Колонка 0: Лейбл "6 грудня"
+        table[1, 0] = colors['label']
         
-        y_pos -= header_h
-        
-        # === РЯДОК 2: Сьогодні ===
-        rect_label = Rectangle((-label_w, y_pos), label_w, data_h, 
-                              linewidth=1, edgecolor=DARK_GRAY, 
-                              facecolor=LIGHT_GRAY)
-        ax.add_patch(rect_label)
-        ax.text(-label_w/2, y_pos + data_h/2, '6 грудня', fontsize=9, 
-               ha='center', va='center', fontweight='bold', color=BLACK)
-        
+        # Колонки 1-24: Слоти
         for i, slot in enumerate(SLOTS):
             state = today_slots.get(slot, 'yes')
-            draw_cell(ax, i, y_pos, cell_w, data_h, state)
+            if state == 'first':
+                # Ліва половина оранжева
+                table[1, i+1] = colors['first']  # буде переписано для візуалізації
+            elif state == 'second':
+                # Права половина оранжева
+                table[1, i+1] = colors['second']  # буде переписано для візуалізації
+            else:
+                table[1, i+1] = colors[state]
         
-        y_pos -= data_h
+        # РЯДОК 2: Завтра
+        # Колонка 0: Лейбл "7 грудня"
+        table[2, 0] = colors['label']
         
-        # === РЯДОК 3: Завтра ===
-        rect_label = Rectangle((-label_w, y_pos), label_w, data_h, 
-                              linewidth=1, edgecolor=DARK_GRAY, 
-                              facecolor=LIGHT_GRAY)
-        ax.add_patch(rect_label)
-        ax.text(-label_w/2, y_pos + data_h/2, '7 грудня', fontsize=9, 
-               ha='center', va='center', fontweight='bold', color=BLACK)
-        
+        # Колонки 1-24: Слоти
         for i, slot in enumerate(SLOTS):
             state = tomorrow_slots.get(slot, 'yes')
-            draw_cell(ax, i, y_pos, cell_w, data_h, state)
+            if state == 'first':
+                table[2, i+1] = colors['first']
+            elif state == 'second':
+                table[2, i+1] = colors['second']
+            else:
+                table[2, i+1] = colors[state]
         
-        ax.set_xlim(-label_w - 0.1, 24)
-        ax.set_ylim(y_pos, 3.7)
+        # Створимо фігуру з точною висотою/шириною
+        cell_size = 40  # пікселі
+        fig_width = (25 * cell_size) / 100
+        fig_height = (3 * cell_size) / 100
+        
+        fig, ax = plt.subplots(figsize=(fig_width, fig_height), dpi=100)
+        fig.patch.set_facecolor(WHITE)
+        ax.set_facecolor(WHITE)
+        
+        # Малюємо таблицю без пробілів
+        for row in range(3):
+            for col in range(25):
+                x = col
+                y = 3 - row - 1  # Перевернемо Y
+                
+                # Визначимо кольір
+                if col == 0:
+                    # Ліва колонка з лейблами
+                    color = HEADER_BG if row == 0 else LIGHT_GRAY
+                    rect = Rectangle((x, y), 2.0, 1, linewidth=1, edgecolor=DARK_GRAY, facecolor=color)
+                    ax.add_patch(rect)
+                    
+                    # Текст лейблу
+                    if row == 0:
+                        text = 'Часові проміжки'
+                    elif row == 1:
+                        text = '6 грудня'
+                    else:
+                        text = '7 грудня'
+                    
+                    ax.text(x + 1, y + 0.5, text, fontsize=9, ha='center', va='center', 
+                           fontweight='bold', color=BLACK)
+                    x += 1.0  # Компенсація за ширшу колонку
+                    col_offset = 1.0
+                else:
+                    col_offset = 1.0
+                    state_key = f"{row}_{col-1}"
+                    
+                    # Визначимо стан клітинки
+                    if row == 0:
+                        color = HEADER_BG
+                        text = HOURS[col-1]
+                    elif row == 1:
+                        state = today_slots.get(str(col), 'yes')
+                        if state == 'no':
+                            color = ORANGE
+                        elif state == 'first':
+                            color = LIGHT_GRAY  # буде розділена
+                        elif state == 'second':
+                            color = LIGHT_GRAY  # буде розділена
+                        else:
+                            color = WHITE
+                        text = None
+                    else:  # row == 2
+                        state = tomorrow_slots.get(str(col), 'yes')
+                        if state == 'no':
+                            color = ORANGE
+                        elif state == 'first':
+                            color = LIGHT_GRAY  # буде розділена
+                        elif state == 'second':
+                            color = LIGHT_GRAY  # буде розділена
+                        else:
+                            color = WHITE
+                        text = None
+                    
+                    rect = Rectangle((x, y), 1, 1, linewidth=1, edgecolor=DARK_GRAY, facecolor=color)
+                    ax.add_patch(rect)
+                    
+                    # Половинки для first/second
+                    if row > 0:
+                        if row == 1:
+                            state = today_slots.get(str(col), 'yes')
+                        else:
+                            state = tomorrow_slots.get(str(col), 'yes')
+                        
+                        if state == 'first':
+                            # Ліва половина оранжева
+                            rect_half = Rectangle((x, y), 0.5, 1, linewidth=0, facecolor=ORANGE)
+                            ax.add_patch(rect_half)
+                        elif state == 'second':
+                            # Права половина оранжева
+                            rect_half = Rectangle((x + 0.5, y), 0.5, 1, linewidth=0, facecolor=ORANGE)
+                            ax.add_patch(rect_half)
+                    
+                    # Текст години
+                    if row == 0:
+                        ax.text(x + 0.5, y + 0.5, text, fontsize=6, ha='center', va='center',
+                               color=BLACK, rotation=90, fontweight='bold')
+        
+        ax.set_xlim(0, 26)
+        ax.set_ylim(0, 3)
         ax.set_aspect('equal')
-        ax.margins(0)
-        
         ax.set_xticks([])
         ax.set_yticks([])
         for spine in ax.spines.values():
             spine.set_visible(False)
         
-        # Заголовок та дата
+        # Заголовок і дата
         fig.text(0.5, 0.97, f"Графік відключень: {queue_name}", 
-                fontsize=14, fontweight='bold', ha='center')
+                fontsize=12, fontweight='bold', ha='center')
         
         if last_updated:
-            fig.text(0.5, 0.93, f"Дата та час останнього оновлення інформації на графіку: {last_updated}", 
+            fig.text(0.5, 0.92, f"Дата та час: {last_updated}", 
                     ha='center', fontsize=8, color='#666666')
         
-        # Легенда - окремий subplot
-        ax_leg = fig.add_axes([0.08, 0.01, 0.84, 0.07])
-        ax_leg.set_xlim(0, 10)
-        ax_leg.set_ylim(0, 1)
-        ax_leg.axis('off')
+        # Легенда
+        legend_text = "Світло є  |  Світла нема  |  Перші 30 хв.  |  Другі 30 хв."
+        fig.text(0.5, 0.05, legend_text, ha='center', fontsize=8)
         
-        legends = [
-            (0.3, 'yes', 'Світло є'),
-            (2.2, 'no', 'Світла нема'),
-            (4.2, 'first', 'Світла нема перші 30 хв.'),
-            (7.0, 'second', 'Світла нема другі 30 хв.')
-        ]
-        
-        cell_size = 0.25
-        
-        for x, state, label in legends:
-            draw_cell(ax_leg, x, 0.3, cell_size, cell_size, state)
-            ax_leg.text(x + cell_size + 0.15, 0.425, label, fontsize=7.5, va='center')
-        
-        # Зберегти БЕЗ tight_layout
+        # Зберегти
         if out_path:
             out_p = Path(out_path)
             if out_p.suffix == '.png':
@@ -177,7 +225,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
             output_file = Path(f"{gkey}.png")
         
         output_file.parent.mkdir(parents=True, exist_ok=True)
-        plt.savefig(output_file, facecolor=WHITE, dpi=150, bbox_inches='tight', pad_inches=0)
+        plt.savefig(output_file, facecolor=WHITE, dpi=150, bbox_inches='tight', pad_inches=0.02)
         print(f"[OK] {output_file}")
         plt.close()
 
