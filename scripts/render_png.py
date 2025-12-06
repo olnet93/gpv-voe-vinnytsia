@@ -8,6 +8,7 @@ import argparse
 from pathlib import Path
 import sys
 from datetime import datetime, timezone, timedelta
+import re
 
 try:
     import matplotlib.pyplot as plt
@@ -28,6 +29,17 @@ HOURS = [f'{i:02d}-{i+1:02d}' for i in range(24)]
 
 # Таймзона Київ (UTC+2)
 KYIV_TZ = timezone(timedelta(hours=2))
+
+def extract_gpv_parts(gpv_key):
+    """
+    Витягуємо частини з GPV ключа
+    Приклади: GPV-1-1, GPV-1-2, GPV-2-1
+    Повертаємо: ('1', '1'), ('1', '2'), ('2', '1')
+    """
+    match = re.match(r'GPV-(\d+)-(\d+)', gpv_key)
+    if match:
+        return match.group(1), match.group(2)
+    return None, None
 
 def render_schedule(json_path, gpv_key=None, out_path=None):
     """Рендерити розклад"""
@@ -261,18 +273,15 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
         if last_updated:
             fig.text(0.8, 0.001, f'Опубліковано {last_updated}', fontsize=11, ha='right', style='italic')
         
-        # Зберегти
+        # === ЗБЕРЕЖЕННЯ З ПРАВИЛЬНОЮ НАЗВОЮ ===
         if out_path:
             out_p = Path(out_path)
-            if out_p.suffix == '.png':
-                output_file = out_p
-            else:
-                out_p.mkdir(parents=True, exist_ok=True)
-                output_file = out_p / f"{gkey}.png"
+            out_p.mkdir(parents=True, exist_ok=True)
+            output_file = out_p / f"{gkey}-emergency.png"
         else:
-            output_file = Path(f"{gkey}.png")
+            # Витягуємо числові частини з gkey (GPV-1-1 -> gpv-1-1-emergency.png)
+            output_file = Path(f"{gkey.lower()}-emergency.png")
         
-        output_file.parent.mkdir(parents=True, exist_ok=True)
         plt.savefig(output_file, facecolor=WHITE, dpi=150, bbox_inches='tight', pad_inches=0.13)
         print(f"[OK] {output_file}")
         plt.close()
