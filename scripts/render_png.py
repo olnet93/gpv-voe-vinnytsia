@@ -30,16 +30,14 @@ HOURS = [f'{i:02d}-{i+1:02d}' for i in range(24)]
 # Таймзона Київ (UTC+2)
 KYIV_TZ = timezone(timedelta(hours=2))
 
-def extract_gpv_parts(gpv_key):
+def format_gpv_filename(gpv_key):
     """
-    Витягуємо частини з GPV ключа
-    Приклади: GPV-1-1, GPV-1-2, GPV-2-1
-    Повертаємо: ('1', '1'), ('1', '2'), ('2', '1')
+    Перетворює GPV2.1 -> gpv-2-1-emergency.png
+    Перетворює GPV-2-1 -> gpv-2-1-emergency.png
     """
-    match = re.match(r'GPV-(\d+)-(\d+)', gpv_key)
-    if match:
-        return match.group(1), match.group(2)
-    return None, None
+    # Видаляємо префікс GPV та замінюємо крапку на дефіс
+    cleaned = gpv_key.replace('GPV', '').replace('.', '-').lstrip('-')
+    return f"gpv-{cleaned}-emergency.png"
 
 def render_schedule(json_path, gpv_key=None, out_path=None):
     """Рендерити розклад"""
@@ -274,13 +272,14 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
             fig.text(0.8, 0.001, f'Опубліковано {last_updated}', fontsize=11, ha='right', style='italic')
         
         # === ЗБЕРЕЖЕННЯ З ПРАВИЛЬНОЮ НАЗВОЮ ===
+        filename = format_gpv_filename(gkey)
+        
         if out_path:
             out_p = Path(out_path)
             out_p.mkdir(parents=True, exist_ok=True)
-            output_file = out_p / f"{gkey}-emergency.png"
+            output_file = out_p / filename
         else:
-            # Витягуємо числові частини з gkey (GPV-1-1 -> gpv-1-1-emergency.png)
-            output_file = Path(f"{gkey.lower()}-emergency.png")
+            output_file = Path(filename)
         
         plt.savefig(output_file, facecolor=WHITE, dpi=150, bbox_inches='tight', pad_inches=0.13)
         print(f"[OK] {output_file}")
