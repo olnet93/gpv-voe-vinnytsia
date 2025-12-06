@@ -201,7 +201,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
         cell_h_fig = (0.85 - 0.15) / table_height * cell_h  # пропорція cell_h (без заголовка)
         
         # Проміжок між елементами легенди
-        spacing = 0.10
+        spacing = 0.075
         
         # Елемент 1: Пуста біла клітинка - "Світло є"
         x1 = legend_x_center - 1.8 * spacing
