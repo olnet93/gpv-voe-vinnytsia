@@ -73,9 +73,11 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
         tomorrow_slots = tomorrow_data.get(gkey, {k: 'yes' for k in SLOTS})
         queue_name = sch_names.get(gkey, gkey)
         
-        # Таблична фігура з 3 стрічками
-        fig, ax = plt.subplots(figsize=(18, 6), dpi=100)
+        # Таблична фігура
+        fig = plt.figure(figsize=(18, 5))
         fig.patch.set_facecolor(WHITE)
+        
+        ax = fig.add_subplot(111)
         ax.set_facecolor(WHITE)
         
         cell_w = 1
@@ -83,7 +85,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
         data_h = 0.9
         label_w = 2.0
         
-        y_pos = 2.3
+        y_pos = 2.2
         
         # === РЯДОК 1: Заголовки часів ===
         rect_label = Rectangle((-label_w, y_pos), label_w, header_h, 
@@ -126,25 +128,26 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
             state = tomorrow_slots.get(slot, 'yes')
             draw_cell(ax, i, y_pos, cell_w, data_h, state)
         
-        ax.set_xlim(-label_w - 0.2, 24)
-        ax.set_ylim(y_pos, 3.8)  # y_pos замість y_pos - 0.3
+        ax.set_xlim(-label_w - 0.1, 24)
+        ax.set_ylim(y_pos, 3.7)
         ax.set_aspect('equal')
+        ax.margins(0)
         
         ax.set_xticks([])
         ax.set_yticks([])
         for spine in ax.spines.values():
             spine.set_visible(False)
         
-        # Заголовок
-        title = f"Графік відключень: {queue_name}"
-        fig.suptitle(title, fontsize=14, fontweight='bold', y=0.97)
+        # Заголовок та дата
+        fig.text(0.5, 0.97, f"Графік відключень: {queue_name}", 
+                fontsize=14, fontweight='bold', ha='center')
         
         if last_updated:
-            fig.text(0.5, 0.91, f"Дата та час останнього оновлення інформації на графіку: {last_updated}", 
+            fig.text(0.5, 0.93, f"Дата та час останнього оновлення інформації на графіку: {last_updated}", 
                     ha='center', fontsize=8, color='#666666')
         
-        # Легенда
-        ax_leg = fig.add_axes([0.08, 0.02, 0.84, 0.1])
+        # Легенда - окремий subplot
+        ax_leg = fig.add_axes([0.08, 0.01, 0.84, 0.07])
         ax_leg.set_xlim(0, 10)
         ax_leg.set_ylim(0, 1)
         ax_leg.axis('off')
@@ -162,9 +165,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
             draw_cell(ax_leg, x, 0.3, cell_size, cell_size, state)
             ax_leg.text(x + cell_size + 0.15, 0.425, label, fontsize=7.5, va='center')
         
-        plt.tight_layout(rect=[0, 0.12, 1, 0.88])
-        
-        # Зберегти
+        # Зберегти БЕЗ tight_layout
         if out_path:
             out_p = Path(out_path)
             if out_p.suffix == '.png':
@@ -176,7 +177,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
             output_file = Path(f"{gkey}.png")
         
         output_file.parent.mkdir(parents=True, exist_ok=True)
-        plt.savefig(output_file, facecolor=WHITE, dpi=150, bbox_inches='tight', pad_inches=0.05)
+        plt.savefig(output_file, facecolor=WHITE, dpi=150, bbox_inches='tight', pad_inches=0)
         print(f"[OK] {output_file}")
         plt.close()
 
