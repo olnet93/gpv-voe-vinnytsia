@@ -173,70 +173,76 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
                 bbox=dict(boxstyle='round,pad=0.5', facecolor='#FFD700', edgecolor='#000000', linewidth=1.5),
                 ha='right')
         
-        # === ЛЕГЕНДА З ПОВНОРОЗМІРНИМИ ПОЗНАЧКАМИ КЛІТИНОК ===
+        # === ЛЕГЕНДА З КЛІТИНКАМИ АНАЛОГІЧНО ТАБЛИЦІ ===
         legend_y = 0.08
         legend_x_center = 0.5
         
-        # Розміри клітинки в легенді (в частках від ширини фігури)
-        box_w = 0.02   # ширина клітинки в легенді
-        box_h = 0.035  # висота клітинки в легенді
+        # Розміри клітинок в легенді (пропорційні до таблиці)
+        # Таблиця: cell_w = 1.0 в координатах даних, figsize = (20, 3.5), таблиця займає ~90% ширини
+        # В figure координатах: таблиця ширина ≈ 0.9 - 0.05 = 0.85
+        # cell_w в figure = 0.85 * 1.0 / 26 ≈ 0.0327
+        # cell_h в figure = висота таблиці / table_height
+        
+        table_fig_width = 0.9 - 0.05  # 0.85
+        cell_w_fig = table_fig_width / table_width  # пропорція cell_w
+        cell_h_fig = (0.85 - 0.15) / table_height * cell_h  # пропорція cell_h (без заголовка)
         
         # Проміжок між елементами легенди
         spacing = 0.18
         
         # Елемент 1: Пуста біла клітинка - "Світло є"
         x1 = legend_x_center - 1.8 * spacing
-        rect = Rectangle((x1 - box_w/2, legend_y - box_h/2), box_w, box_h, 
+        rect = Rectangle((x1 - cell_w_fig/2, legend_y - cell_h_fig/2), cell_w_fig, cell_h_fig, 
                         linewidth=0.5, edgecolor=BORDER, facecolor=WHITE, 
                         transform=fig.transFigure, clip_on=False)
         fig.patches.append(rect)
-        fig.text(x1 + 0.025, legend_y, 'Світло є', fontsize=7, va='center')
+        fig.text(x1 + cell_w_fig/2 + 0.015, legend_y, 'Світло є', fontsize=7, va='center')
         
         # Елемент 2: Повністю оранжева клітинка - "Світла нема"
         x2 = legend_x_center - 0.6 * spacing
-        rect = Rectangle((x2 - box_w/2, legend_y - box_h/2), box_w, box_h, 
+        rect = Rectangle((x2 - cell_w_fig/2, legend_y - cell_h_fig/2), cell_w_fig, cell_h_fig, 
                         linewidth=0.5, edgecolor=BORDER, facecolor=ORANGE, 
                         transform=fig.transFigure, clip_on=False)
         fig.patches.append(rect)
-        fig.text(x2 + 0.025, legend_y, 'Світла нема', fontsize=7, va='center')
+        fig.text(x2 + cell_w_fig/2 + 0.015, legend_y, 'Світла нема', fontsize=7, va='center')
         
         # Елемент 3: Ліва половина оранжева - "Світла нема перші 30 хв."
         x3 = legend_x_center + 0.6 * spacing
         # Ліва половина біла
-        rect_left = Rectangle((x3 - box_w/2, legend_y - box_h/2), box_w/2, box_h, 
+        rect_left = Rectangle((x3 - cell_w_fig/2, legend_y - cell_h_fig/2), cell_w_fig/2, cell_h_fig, 
                              linewidth=0, facecolor=WHITE, 
                              transform=fig.transFigure, clip_on=False)
         fig.patches.append(rect_left)
         # Права половина оранжева
-        rect_right = Rectangle((x3, legend_y - box_h/2), box_w/2, box_h, 
+        rect_right = Rectangle((x3, legend_y - cell_h_fig/2), cell_w_fig/2, cell_h_fig, 
                               linewidth=0, facecolor=ORANGE, 
                               transform=fig.transFigure, clip_on=False)
         fig.patches.append(rect_right)
         # Бордюр
-        rect_border = Rectangle((x3 - box_w/2, legend_y - box_h/2), box_w, box_h, 
+        rect_border = Rectangle((x3 - cell_w_fig/2, legend_y - cell_h_fig/2), cell_w_fig, cell_h_fig, 
                                linewidth=0.5, edgecolor=BORDER, facecolor='none', 
                                transform=fig.transFigure, clip_on=False)
         fig.patches.append(rect_border)
-        fig.text(x3 + 0.025, legend_y, 'Світла нема перші 30 хв.', fontsize=7, va='center')
+        fig.text(x3 + cell_w_fig/2 + 0.015, legend_y, 'Світла нема перші 30 хв.', fontsize=7, va='center')
         
         # Елемент 4: Права половина оранжева - "Світла нема другі 30 хв."
         x4 = legend_x_center + 1.8 * spacing
         # Ліва половина оранжева
-        rect_left = Rectangle((x4 - box_w/2, legend_y - box_h/2), box_w/2, box_h, 
+        rect_left = Rectangle((x4 - cell_w_fig/2, legend_y - cell_h_fig/2), cell_w_fig/2, cell_h_fig, 
                              linewidth=0, facecolor=ORANGE, 
                              transform=fig.transFigure, clip_on=False)
         fig.patches.append(rect_left)
         # Права половина біла
-        rect_right = Rectangle((x4, legend_y - box_h/2), box_w/2, box_h, 
+        rect_right = Rectangle((x4, legend_y - cell_h_fig/2), cell_w_fig/2, cell_h_fig, 
                               linewidth=0, facecolor=WHITE, 
                               transform=fig.transFigure, clip_on=False)
         fig.patches.append(rect_right)
         # Бордюр
-        rect_border = Rectangle((x4 - box_w/2, legend_y - box_h/2), box_w, box_h, 
+        rect_border = Rectangle((x4 - cell_w_fig/2, legend_y - cell_h_fig/2), cell_w_fig, cell_h_fig, 
                                linewidth=0.5, edgecolor=BORDER, facecolor='none', 
                                transform=fig.transFigure, clip_on=False)
         fig.patches.append(rect_border)
-        fig.text(x4 + 0.025, legend_y, 'Світла нема другі 30 хв.', fontsize=7, va='center')
+        fig.text(x4 + cell_w_fig/2 + 0.015, legend_y, 'Світла нема другі 30 хв.', fontsize=7, va='center')
         
         # Дата оновлення
         if last_updated:
