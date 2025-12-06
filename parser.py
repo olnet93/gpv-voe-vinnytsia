@@ -240,6 +240,7 @@ def transform_to_gpv(all_outages, kyiv_now):
     """Трансформує дані в GPV формат
     
     Залишає ТІЛЬКИ сьогодні та завтра
+    Вихідні дані вже в Kyiv timezone - без конвертації
     """
     log("[TRANSFORM] Starting transformation to GPV format")
     
@@ -260,25 +261,15 @@ def transform_to_gpv(all_outages, kyiv_now):
             begin_str = outage['acc_begin']
             end_str = outage['accend_plan']
             
-            # Парсимо ISO datetime
+            # Парсимо ISO datetime (дані вже в Kyiv timezone)
             begin_dt = datetime.fromisoformat(begin_str)
             end_dt = datetime.fromisoformat(end_str)
             
-            # Якщо datetime наївний (без timezone) - припускаємо UTC
-            if begin_dt.tzinfo is None:
-                begin_dt = begin_dt.replace(tzinfo=timezone.utc)
-            if end_dt.tzinfo is None:
-                end_dt = end_dt.replace(tzinfo=timezone.utc)
+            # Отримуємо дату як Unix timestamp
+            date_only = begin_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+            unix_ts = int(date_only.timestamp())
             
-            # Конвертуємо в Kyiv timezone
-            begin_kyiv = begin_dt.astimezone(KYIV_TZ)
-            end_kyiv = end_dt.astimezone(KYIV_TZ)
-            
-            # Отримуємо дату в Kyiv timezone як Unix timestamp
-            date_only_kyiv = begin_kyiv.replace(hour=0, minute=0, second=0, microsecond=0)
-            unix_ts = int(date_only_kyiv.timestamp())
-            
-            log(f"[TRANSFORM] Outage: {begin_str} → Kyiv: {begin_kyiv.isoformat()} → Date TS: {unix_ts}")
+            log(f"[TRANSFORM] Outage: {begin_str} → Date TS: {unix_ts}")
             
             # ФІЛЬТРУЄМО: залишаємо тільки сьогодні та завтра
             if unix_ts not in [today_ts, tomorrow_ts]:
@@ -294,10 +285,10 @@ def transform_to_gpv(all_outages, kyiv_now):
                 outages_by_date_queue[unix_ts][queue_key] = []
             
             outages_by_date_queue[unix_ts][queue_key].append({
-                'start_hour': begin_kyiv.hour,
-                'start_minute': begin_kyiv.minute,
-                'end_hour': end_kyiv.hour,
-                'end_minute': end_kyiv.minute,
+                'start_hour': begin_dt.hour,
+                'start_minute': begin_dt.minute,
+                'end_hour': end_dt.hour,
+                'end_minute': end_dt.minute,
             })
             
         except Exception as e:
