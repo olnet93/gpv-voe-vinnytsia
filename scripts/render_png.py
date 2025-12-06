@@ -174,15 +174,10 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
                 ha='right')
         
         # === ЛЕГЕНДА З КЛІТИНКАМИ АНАЛОГІЧНО ТАБЛИЦІ ===
-        legend_y = 0.08
+        legend_y = 0.02  # Опущена нижче
         legend_x_center = 0.5
         
         # Розміри клітинок в легенді (пропорційні до таблиці)
-        # Таблиця: cell_w = 1.0 в координатах даних, figsize = (20, 3.5), таблиця займає ~90% ширини
-        # В figure координатах: таблиця ширина ≈ 0.9 - 0.05 = 0.85
-        # cell_w в figure = 0.85 * 1.0 / 26 ≈ 0.0327
-        # cell_h в figure = висота таблиці / table_height
-        
         table_fig_width = 0.9 - 0.05  # 0.85
         cell_w_fig = table_fig_width / table_width  # пропорція cell_w
         cell_h_fig = (0.85 - 0.15) / table_height * cell_h  # пропорція cell_h (без заголовка)
@@ -246,7 +241,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
         
         # Дата оновлення
         if last_updated:
-            fig.text(0.95, 0.01, f'Опубліковано {last_updated}', fontsize=6, ha='right', style='italic')
+            fig.text(0.95, 0.001, f'Опубліковано {last_updated}', fontsize=6, ha='right', style='italic')
         
         # Зберегти
         if out_path:
