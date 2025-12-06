@@ -1,0 +1,44 @@
+name: Render PNG Schedules
+
+on:
+  push:
+    paths:
+      - 'data/**'
+      - 'scripts/render_png.py'
+  workflow_dispatch:
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: pip install matplotlib
+      
+      - name: Create images directory
+        run: mkdir -p images
+      
+      - name: Render PNG schedules for all regions
+        run: |
+          for json_file in data/*.json; do
+            if [ -f "$json_file" ]; then
+              region_name=$(basename "$json_file" .json)
+              echo "Rendering $region_name..."
+              python scripts/render_png.py --json "$json_file" --out "images/$region_name/"
+            fi
+          done
+      
+      - name: Commit and push changes
+        run: |
+          git config user.name "PNG Renderer Bot"
+          git config user.email "bot@github.com"
+          git add images/
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-generated PNG schedules [skip ci]" && git push)
