@@ -86,7 +86,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
         # Ліва клітинка (лейбл "Дата")
         rect = Rectangle((0, y_pos), label_w, header_h, linewidth=1, edgecolor=BORDER, facecolor=GRAY_HEADER)
         ax.add_patch(rect)
-        ax.text(label_w/2, y_pos + header_h/2, 'Дата', fontsize=9, ha='center', va='center',
+        ax.text(label_w/2, y_pos + header_h/2, 'Дата', fontsize=12, ha='center', va='center',
                fontweight='bold', color='#000000')
         
         # Години
@@ -103,7 +103,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
         # Ліва клітинка
         rect = Rectangle((0, y_pos), label_w, cell_h, linewidth=1, edgecolor=BORDER, facecolor=GRAY_LABEL)
         ax.add_patch(rect)
-        ax.text(label_w/2, y_pos + cell_h/2, today_str, fontsize=9, ha='center', va='center',
+        ax.text(label_w/2, y_pos + cell_h/2, today_str, fontsize=12, ha='center', va='center',
                fontweight='bold', color='#000000')
         
         # Слоти сьогодні
@@ -140,7 +140,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
         # Ліва клітинка
         rect = Rectangle((0, y_pos), label_w, cell_h, linewidth=1, edgecolor=BORDER, facecolor=GRAY_LABEL)
         ax.add_patch(rect)
-        ax.text(label_w/2, y_pos + cell_h/2, tomorrow_str, fontsize=9, ha='center', va='center',
+        ax.text(label_w/2, y_pos + cell_h/2, tomorrow_str, fontsize=12, ha='center', va='center',
                fontweight='bold', color='#000000')
         
         # Слоти завтра
