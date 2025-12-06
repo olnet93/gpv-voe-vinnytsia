@@ -7,6 +7,7 @@ import json
 import argparse
 from pathlib import Path
 import sys
+from datetime import datetime, timezone, timedelta
 
 try:
     import matplotlib.pyplot as plt
@@ -25,6 +26,9 @@ BORDER = '#808080'
 SLOTS = list(range(1, 25))
 HOURS = [f'{i:02d}-{i+1:02d}' for i in range(24)]
 
+# Таймзона Київ (UTC+2)
+KYIV_TZ = timezone(timedelta(hours=2))
+
 def render_schedule(json_path, gpv_key=None, out_path=None):
     """Рендерити розклад"""
     
@@ -39,6 +43,20 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
     
     today_data = fact_data.get(today_ts, {})
     tomorrow_data = fact_data.get(tomorrow_ts, {})
+    
+    # Отримуємо дати з таймзоною Київ
+    today_date = datetime.fromtimestamp(int(today_ts), tz=KYIV_TZ)
+    tomorrow_date = datetime.fromtimestamp(int(tomorrow_ts), tz=KYIV_TZ)
+    
+    # Форматуємо дати як "ДД місяць" (укр.)
+    months_uk = {
+        1: 'січня', 2: 'лютого', 3: 'березня', 4: 'квітня',
+        5: 'травня', 6: 'червня', 7: 'липня', 8: 'серпня',
+        9: 'вересня', 10: 'жовтня', 11: 'листопада', 12: 'грудня'
+    }
+    
+    today_str = f'{today_date.day:02d} {months_uk[today_date.month]}'
+    tomorrow_str = f'{tomorrow_date.day:02d} {months_uk[tomorrow_date.month]}'
     
     gpv_keys = [gpv_key] if gpv_key else sorted([k for k in today_data if k.startswith('GPV')])
     
@@ -85,7 +103,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
         # Ліва клітинка
         rect = Rectangle((0, y_pos), label_w, cell_h, linewidth=1, edgecolor=BORDER, facecolor=GRAY_LABEL)
         ax.add_patch(rect)
-        ax.text(label_w/2, y_pos + cell_h/2, '06 грудня', fontsize=9, ha='center', va='center',
+        ax.text(label_w/2, y_pos + cell_h/2, today_str, fontsize=9, ha='center', va='center',
                fontweight='bold', color='#000000')
         
         # Слоти сьогодні
@@ -122,7 +140,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
         # Ліва клітинка
         rect = Rectangle((0, y_pos), label_w, cell_h, linewidth=1, edgecolor=BORDER, facecolor=GRAY_LABEL)
         ax.add_patch(rect)
-        ax.text(label_w/2, y_pos + cell_h/2, '07 грудня', fontsize=9, ha='center', va='center',
+        ax.text(label_w/2, y_pos + cell_h/2, tomorrow_str, fontsize=9, ha='center', va='center',
                fontweight='bold', color='#000000')
         
         # Слоти завтра
@@ -175,7 +193,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
         
         # === ЛЕГЕНДА З КЛІТИНКАМИ АНАЛОГІЧНО ТАБЛИЦІ ===
         legend_y = 0.02  # Низько
-        legend_x_center = 0.35  # Лівіше від центру, але в межах таблиці (таблиця 0.05-0.95)
+        legend_x_center = 0.35  # Лівіше від центру, але в межах таблиці
         
         # Розміри клітинок в легенді (пропорційні до таблиці)
         table_fig_width = 0.9 - 0.05  # 0.85
