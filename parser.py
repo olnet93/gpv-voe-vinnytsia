@@ -293,7 +293,7 @@ def transform_to_gpv(all_outages, kyiv_now):
     
     # Гарантуємо наявність сьогодні та завтра
     required_dates = [today_ts, tomorrow_ts]
-    all_dates_with_required = sorted(set(all_dates + required_dates))
+    all_dates_with_required = sorted(set(all_dates + required_dates), reverse=True)
     
     for unix_ts in all_dates_with_required:
         fact_data[str(unix_ts)] = {}
