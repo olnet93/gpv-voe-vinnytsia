@@ -184,10 +184,10 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
         # === ПОЗИЦІОНУВАННЯ ЕЛЕМЕНТІВ НА РИСУНКУ ===
         
         # Заголовок "Графік відключень:" 
-        fig.text(0.15, 0.99, 'Графік відключень для Вінницька область', fontsize=18, fontweight='bold')
+        fig.text(0.15, 0.97, 'Графік відключень для Вінницька область', fontsize=18, fontweight='bold')
         
         # Етикетка черги
-        fig.text(0.9, 0.99, queue_name, fontsize=18, fontweight='bold',
+        fig.text(0.85, 0.97, queue_name, fontsize=18, fontweight='bold',
                 bbox=dict(boxstyle='round,pad=0.5', facecolor='#FFD700', edgecolor='#000000', linewidth=1.5),
                 ha='right')
         
