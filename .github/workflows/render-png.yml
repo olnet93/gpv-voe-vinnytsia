@@ -7,6 +7,9 @@ on:
       - 'scripts/render_png.py'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   render:
     runs-on: ubuntu-latest
