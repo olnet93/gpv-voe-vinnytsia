@@ -4,7 +4,7 @@ E-svitlo Parser - витягує дані про плановані відклю
 Для 12 черг Вінниця регіон (6 груп по 2 черги)
 EIC значення прикриті через GitHub Secrets
 Трансформує дані в формат GPV
-Залишає тільки сьогодні та завтра
+Гарантує наявність сьогодні + завтра з усіма чергами
 """
 import json
 import os
@@ -239,19 +239,18 @@ def create_empty_slots():
 def transform_to_gpv(all_outages, kyiv_now):
     """Трансформує дані в GPV формат
     
-    Залишає ТІЛЬКИ сьогодні та завтра
-    Вихідні дані вже в Kyiv timezone - без конвертації
+    Гарантує наявність сьогодні та завтра з усіма 12 чергами
     """
     log("[TRANSFORM] Starting transformation to GPV format")
     
-    # Отримуємо сьогодні та завтра як Unix timestamps (в Kyiv timezone)
+    # Отримуємо сьогодні та завтра як Unix timestamps
     today_date = kyiv_now.replace(hour=0, minute=0, second=0, microsecond=0)
     tomorrow_date = today_date + timedelta(days=1)
     
     today_ts = int(today_date.timestamp())
     tomorrow_ts = int(tomorrow_date.timestamp())
     
-    log(f"[TRANSFORM] Today: {today_ts} ({today_date}), Tomorrow: {tomorrow_ts} ({tomorrow_date})")
+    log(f"[TRANSFORM] Today: {today_ts}, Tomorrow: {tomorrow_ts}")
     
     # Групуємо вимкнення за датою та чергою
     outages_by_date_queue = {}
@@ -261,20 +260,12 @@ def transform_to_gpv(all_outages, kyiv_now):
             begin_str = outage['acc_begin']
             end_str = outage['accend_plan']
             
-            # Парсимо ISO datetime (дані вже в Kyiv timezone)
             begin_dt = datetime.fromisoformat(begin_str)
             end_dt = datetime.fromisoformat(end_str)
             
-            # Отримуємо дату як Unix timestamp
+            # Отримуємо Unix timestamp дня (початок дня в UTC)
             date_only = begin_dt.replace(hour=0, minute=0, second=0, microsecond=0)
             unix_ts = int(date_only.timestamp())
-            
-            log(f"[TRANSFORM] Outage: {begin_str} → Date TS: {unix_ts}")
-            
-            # ФІЛЬТРУЄМО: залишаємо тільки сьогодні та завтра
-            if unix_ts not in [today_ts, tomorrow_ts]:
-                log(f"[TRANSFORM] Skipping outage from {unix_ts} (not today or tomorrow)")
-                continue
             
             if unix_ts not in outages_by_date_queue:
                 outages_by_date_queue[unix_ts] = {}
@@ -294,11 +285,17 @@ def transform_to_gpv(all_outages, kyiv_now):
         except Exception as e:
             log("[TRANSFORM] Error processing outage: " + str(e))
     
-    # Збудуємо структуру з гарантією сьогодні + завтра (тільки ці 2 дати)
+    # Збудуємо структуру з гарантією сьогодні + завтра
     fact_data = {}
     
-    # Обробляємо дати у зворотному порядку (сьогодні першим)
-    for unix_ts in [today_ts, tomorrow_ts]:
+    # Обробляємо кожну дату що була в даних
+    all_dates = sorted(set(outages_by_date_queue.keys()))
+    
+    # Гарантуємо наявність сьогодні та завтра
+    required_dates = [today_ts, tomorrow_ts]
+    all_dates_with_required = sorted(set(all_dates + required_dates))
+    
+    for unix_ts in all_dates_with_required:
         fact_data[str(unix_ts)] = {}
         
         # Для кожної черги
