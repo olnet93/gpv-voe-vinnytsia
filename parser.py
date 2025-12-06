@@ -4,12 +4,14 @@ E-svitlo Parser - витягує дані про плановані відклю
 Для 12 черг Вінниця регіон (6 груп по 2 черги)
 EIC значення прикриті через GitHub Secrets
 Трансформує дані в формат GPV
+Гарантує наявність сьогодні + завтра з усіма чергами
 """
 import json
 import os
 import time
 import sys
 from datetime import datetime, timezone, timedelta
+import hashlib
 
 def log(msg):
     print(msg)
@@ -52,6 +54,8 @@ QUEUE_TO_GPV = {
     "6.1": "GPV6.1",
     "6.2": "GPV6.2"
 }
+
+ALL_QUEUE_KEYS = ["1.1", "1.2", "2.1", "2.2", "3.1", "3.2", "4.1", "4.2", "5.1", "5.2", "6.1", "6.2"]
 
 # EIC значення з GitHub Secrets (прикриті)
 EICS = {
@@ -217,86 +221,130 @@ def parse_queue(scraper, url, queue_key, queue_idx):
         log("[Q" + str(queue_idx) + "] EXCEPTION: " + str(e)[:100])
         return []
 
-def hour_to_slot(hour, minute):
-    """Конвертує годину:хвилину в номер часового слота (1-24)"""
-    if minute > 0:
-        return hour + 1 if hour < 23 else 24
-    return hour if hour > 0 else 24
+def hour_to_slot(hour):
+    """Конвертує годину в номер часового слота (1-24)
+    
+    Слот N охоплює годину від (N-1):00 до N:00
+    Приклад: слот 7 = 6:00-7:00, слот 1 = 0:00-1:00
+    """
+    if hour == 0:
+        return 1
+    else:
+        return hour + 1
 
-def get_outage_status(begin_str, end_str):
-    """Визначає статус вимкнення: yes, no, first, second"""
-    try:
-        begin = datetime.fromisoformat(begin_str)
-        end = datetime.fromisoformat(end_str)
-        duration_hours = (end - begin).total_seconds() / 3600
-        
-        if duration_hours < 0.5:
-            return "no"
-        elif duration_hours <= 1:
-            return "first" if begin.minute == 0 else "first"
-        elif duration_hours <= 2:
-            return "second"
-        else:
-            return "split"
-    except:
-        return "yes"
+def create_empty_slots():
+    """Створює порожні слоти (всі = yes)"""
+    return {str(i): "yes" for i in range(1, 25)}
 
-def transform_to_gpv(all_outages):
-    """Трансформує дані в GPV формат"""
+def transform_to_gpv(all_outages, kyiv_now):
+    """Трансформує дані в GPV формат
+    
+    Гарантує наявність сьогодні та завтра з усіма 12 чергами
+    """
     log("[TRANSFORM] Starting transformation to GPV format")
     
-    # Ініціалізація структури
-    fact_data = {}
+    # Отримуємо сьогодні та завтра як Unix timestamps
+    today_date = kyiv_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    tomorrow_date = today_date + timedelta(days=1)
     
-    # Групуємо вимкнення за датою
-    outages_by_date = {}
+    today_ts = int(today_date.timestamp())
+    tomorrow_ts = int(tomorrow_date.timestamp())
+    
+    log(f"[TRANSFORM] Today: {today_ts}, Tomorrow: {tomorrow_ts}")
+    
+    # Групуємо вимкнення за датою та чергою
+    outages_by_date_queue = {}
     
     for outage in all_outages:
         try:
-            begin_dt = datetime.fromisoformat(outage['acc_begin'])
+            begin_str = outage['acc_begin']
+            end_str = outage['accend_plan']
+            
+            begin_dt = datetime.fromisoformat(begin_str)
+            end_dt = datetime.fromisoformat(end_str)
+            
             # Отримуємо Unix timestamp дня (початок дня в UTC)
             date_only = begin_dt.replace(hour=0, minute=0, second=0, microsecond=0)
             unix_ts = int(date_only.timestamp())
             
-            if unix_ts not in outages_by_date:
-                outages_by_date[unix_ts] = {}
+            if unix_ts not in outages_by_date_queue:
+                outages_by_date_queue[unix_ts] = {}
             
             queue_key = outage['queue_key']
-            gpv_key = QUEUE_TO_GPV.get(queue_key)
             
-            if gpv_key not in outages_by_date[unix_ts]:
-                outages_by_date[unix_ts][gpv_key] = {}
+            if queue_key not in outages_by_date_queue[unix_ts]:
+                outages_by_date_queue[unix_ts][queue_key] = []
             
-            # Визначаємо часові слоти
-            begin = datetime.fromisoformat(outage['acc_begin'])
-            end = datetime.fromisoformat(outage['accend_plan'])
-            start_slot = hour_to_slot(begin.hour, begin.minute)
-            end_slot = hour_to_slot(end.hour, end.minute)
+            outages_by_date_queue[unix_ts][queue_key].append({
+                'start_hour': begin_dt.hour,
+                'start_minute': begin_dt.minute,
+                'end_hour': end_dt.hour,
+                'end_minute': end_dt.minute,
+            })
             
-            # Заповнюємо слоти статусом
-            for slot in range(start_slot, min(end_slot + 1, 25)):
-                outages_by_date[unix_ts][gpv_key][str(slot)] = "no"
-            
-            # Якщо вимкнення починається в половині години
-            if begin.minute > 0:
-                outages_by_date[unix_ts][gpv_key][str(start_slot)] = "first"
-            
-            # Якщо закінчується в половині години
-            if end.minute > 0 and end.hour < 23:
-                outages_by_date[unix_ts][gpv_key][str(end_slot)] = "second"
-        
         except Exception as e:
             log("[TRANSFORM] Error processing outage: " + str(e))
     
-    # Заповнюємо решту слотів "yes"
-    for date_ts in outages_by_date:
-        for gpv_key in outages_by_date[date_ts]:
-            for slot in range(1, 25):
-                slot_str = str(slot)
-                if slot_str not in outages_by_date[date_ts][gpv_key]:
-                    outages_by_date[date_ts][gpv_key][slot_str] = "yes"
+    # Збудуємо структуру з гарантією сьогодні + завтра
+    fact_data = {}
     
-    return outages_by_date
+    # Обробляємо кожну дату що була в даних
+    all_dates = sorted(set(outages_by_date_queue.keys()))
+    
+    # Гарантуємо наявність сьогодні та завтра
+    required_dates = [today_ts, tomorrow_ts]
+    all_dates_with_required = sorted(set(all_dates + required_dates))
+    
+    for unix_ts in all_dates_with_required:
+        fact_data[str(unix_ts)] = {}
+        
+        # Для кожної черги
+        for queue_key in ALL_QUEUE_KEYS:
+            gpv_key = QUEUE_TO_GPV.get(queue_key)
+            
+            # Ініціалізуємо всі слоти як "yes"
+            slots = create_empty_slots()
+            
+            # Якщо є вимкнення для цієї черги в цей день - обробляємо
+            if unix_ts in outages_by_date_queue and queue_key in outages_by_date_queue[unix_ts]:
+                for outage in outages_by_date_queue[unix_ts][queue_key]:
+                    start_hour = outage['start_hour']
+                    start_minute = outage['start_minute']
+                    end_hour = outage['end_hour']
+                    end_minute = outage['end_minute']
+                    
+                    # Конвертуємо години в слоти
+                    start_slot = hour_to_slot(start_hour)
+                    
+                    # Якщо закінчується на межі години (XX:00)
+                    if end_minute == 0:
+                        end_slot = hour_to_slot(end_hour)
+                    else:
+                        # Закінчується в половині години
+                        end_slot = hour_to_slot(end_hour) + 1
+                    
+                    log(f"[TRANSFORM] {gpv_key} ({unix_ts}): {start_hour}:{start_minute:02d}-{end_hour}:{end_minute:02d} → слоти {start_slot}-{end_slot-1}")
+                    
+                    # Заповнюємо слоти з "no"
+                    for slot in range(start_slot, end_slot):
+                        if slot <= 24:
+                            slots[str(slot)] = "no"
+                    
+                    # Якщо закінчується в половині години - останній слот "second"
+                    if end_minute > 0 and end_slot <= 24:
+                        slots[str(end_slot)] = "second"
+                    
+                    # Якщо починається в половині години - перший слот "first"
+                    if start_minute > 0:
+                        slots[str(start_slot)] = "first"
+            
+            fact_data[str(unix_ts)][gpv_key] = slots
+    
+    return fact_data
+
+def calculate_hash(data_str):
+    """Розраховує SHA256 хеш даних"""
+    return hashlib.sha256(data_str.encode()).hexdigest()
 
 def save_results(all_outages):
     """Зберегти результати у JSON GPV формат"""
@@ -304,17 +352,17 @@ def save_results(all_outages):
     
     # Отримати поточний час у Kyiv timezone
     kyiv_now = datetime.now(KYIV_TZ)
-    last_updated_str = kyiv_now.strftime('%Y-%m-%dT%H:%M:%S')
+    last_updated_str = kyiv_now.isoformat(timespec='milliseconds') + 'Z'
     update_fact_str = kyiv_now.strftime('%d.%m.%Y %H:%M')
     
     # Трансформуємо дані
-    fact_data = transform_to_gpv(all_outages)
+    fact_data = transform_to_gpv(all_outages, kyiv_now)
     
     # Отримуємо сьогоднішню дату як Unix timestamp
     today_date = kyiv_now.replace(hour=0, minute=0, second=0, microsecond=0)
     today_ts = int(today_date.timestamp())
     
-    # Створюємо結構
+    # Створюємо структуру
     result = {
         "regionId": "vinnytsia",
         "lastUpdated": last_updated_str,
@@ -354,10 +402,20 @@ def save_results(all_outages):
             "ok": True,
             "code": 200,
             "message": None,
-            "at": kyiv_now.isoformat() + "Z",
+            "at": kyiv_now.isoformat(timespec='milliseconds') + 'Z',
             "attempt": 1
         },
         "regionAffiliation": "Вінницька область"
+    }
+    
+    # Розраховуємо хеш контенту (факт даних)
+    fact_data_str = json.dumps(result['fact']['data'], sort_keys=True, ensure_ascii=False)
+    content_hash = calculate_hash(fact_data_str)
+    
+    # Додаємо мета інформацію
+    result["meta"] = {
+        "schemaVersion": "1.0.0",
+        "contentHash": content_hash
     }
     
     # Створити папку data якщо не існує
@@ -372,6 +430,7 @@ def save_results(all_outages):
         json.dump(result, f, ensure_ascii=False, indent=2)
     
     log("[SAVE] Success: Saved to " + file_path)
+    log(f"[SAVE] Total dates: {len(fact_data)}, Queues per date: {len(ALL_QUEUE_KEYS)}, Content hash: {content_hash}")
 
 def main():
     log("=" * 70)
@@ -385,9 +444,7 @@ def main():
     log("[MAIN] Parsing 12 queues...")
     all_outages = []
     
-    queue_keys = ["1.1", "1.2", "2.1", "2.2", "3.1", "3.2", "4.1", "4.2", "5.1", "5.2", "6.1", "6.2"]
-    
-    for idx, (queue_key, url) in enumerate(zip(queue_keys, QUEUE_URLS), 1):
+    for idx, (queue_key, url) in enumerate(zip(ALL_QUEUE_KEYS, QUEUE_URLS), 1):
         queue_outages = parse_queue(scraper, url, queue_key, idx)
         all_outages.extend(queue_outages)
     
