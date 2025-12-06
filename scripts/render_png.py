@@ -48,7 +48,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
         tomorrow_slots = tomorrow_data.get(gkey, {k: 'yes' for k in SLOTS})
         queue_name = sch_names.get(gkey, gkey)
         
-        fig, ax = plt.subplots(figsize=(20, 6), dpi=100)
+        fig, ax = plt.subplots(figsize=(22, 7), dpi=100)
         fig.patch.set_facecolor(WHITE)
         ax.set_facecolor(WHITE)
         
@@ -144,7 +144,8 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
         
         ax.set_xlim(0, label_w + 24 * cell_w)
         ax.set_ylim(0, header_h + 2 * cell_h)
-        ax.set_aspect('equal')
+        # БЕЗ ax.set_aspect('equal') - дозволяє масштабувати без обмежень
+        
         ax.set_xticks([])
         ax.set_yticks([])
         for spine in ax.spines.values():
