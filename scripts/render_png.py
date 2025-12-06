@@ -94,7 +94,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
             x = label_w + i * cell_w
             rect = Rectangle((x, y_pos), cell_w, header_h, linewidth=1, edgecolor=BORDER, facecolor=GRAY_HEADER)
             ax.add_patch(rect)
-            ax.text(x + cell_w/2, y_pos + header_h/2, HOURS[i], fontsize=6, ha='center', va='center',
+            ax.text(x + cell_w/2, y_pos + header_h/2, HOURS[i], fontsize=10, ha='center', va='center',
                    fontweight='bold', color='#000000')
         
         y_pos += header_h
