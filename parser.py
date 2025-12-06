@@ -349,12 +349,12 @@ def transform_to_gpv(all_outages, kyiv_now):
                             slots[str(slot)] = "no"
                     
                     # Логіка first/second
-                    # 'first': якщо вимкнення починається в половині години
-                    if start_minute == 30 and start_slot <= 24:
-                        slots[str(start_slot)] = "first"
+                    # 'second': якщо вимкнення починається в другій половині години (30-59 хв)
+                    if 30 <= start_minute <= 59 and start_slot <= 24:
+                        slots[str(start_slot)] = "second"
                     
-                    # 'first': якщо вимкнення закінчується в половині години
-                    if end_minute >= 30 and end_slot - 1 <= 24:
+                    # 'first': якщо вимкнення закінчується в першій половині години (0-30 хв)
+                    if 0 <= end_minute <= 30 and end_slot - 1 <= 24:
                         slots[str(end_slot - 1)] = "first"
             
             fact_data[str(unix_ts)][gpv_key] = slots
