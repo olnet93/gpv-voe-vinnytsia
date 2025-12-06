@@ -98,7 +98,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
             ax.text(i + 0.5, y_pos + header_h/2, hour_label, fontsize=6, 
                    ha='center', va='center', color=BLACK, rotation=90, fontweight='bold')
         
-        y_pos -= header_h  # Без пробілу - прилягає одразу
+        y_pos -= header_h
         
         # === РЯДОК 2: Сьогодні ===
         rect_label = Rectangle((-label_w, y_pos), label_w, data_h, 
@@ -112,7 +112,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
             state = today_slots.get(slot, 'yes')
             draw_cell(ax, i, y_pos, cell_w, data_h, state)
         
-        y_pos -= data_h  # Без пробілу
+        y_pos -= data_h
         
         # === РЯДОК 3: Завтра ===
         rect_label = Rectangle((-label_w, y_pos), label_w, data_h, 
@@ -127,7 +127,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
             draw_cell(ax, i, y_pos, cell_w, data_h, state)
         
         ax.set_xlim(-label_w - 0.2, 24)
-        ax.set_ylim(y_pos - 0.3, 3.8)
+        ax.set_ylim(y_pos, 3.8)  # y_pos замість y_pos - 0.3
         ax.set_aspect('equal')
         
         ax.set_xticks([])
