@@ -3,6 +3,7 @@
 E-svitlo Parser - витягує дані про плановані відключення
 Для 12 черг Вінниця регіон (6 груп по 2 черги)
 EIC значення прикриті через GitHub Secrets
+Трансформує дані в формат GPV
 """
 import json
 import os
@@ -35,6 +36,21 @@ QUEUE_MAPPING = {
     "5.2": "queue 5.2",
     "6.1": "queue 6.1",
     "6.2": "queue 6.2"
+}
+
+QUEUE_TO_GPV = {
+    "1.1": "GPV1.1",
+    "1.2": "GPV1.2",
+    "2.1": "GPV2.1",
+    "2.2": "GPV2.2",
+    "3.1": "GPV3.1",
+    "3.2": "GPV3.2",
+    "4.1": "GPV4.1",
+    "4.2": "GPV4.2",
+    "5.1": "GPV5.1",
+    "5.2": "GPV5.2",
+    "6.1": "GPV6.1",
+    "6.2": "GPV6.2"
 }
 
 # EIC значення з GitHub Secrets (прикриті)
@@ -188,6 +204,7 @@ def parse_queue(scraper, url, queue_key, queue_idx):
             if isinstance(item, dict):
                 outages.append({
                     'queue': queue_name,
+                    'queue_key': queue_key,
                     'acc_begin': item.get('acc_begin', ''),
                     'accend_plan': item.get('accend_plan', ''),
                     'typeid': item.get('typeid', '')
@@ -200,20 +217,147 @@ def parse_queue(scraper, url, queue_key, queue_idx):
         log("[Q" + str(queue_idx) + "] EXCEPTION: " + str(e)[:100])
         return []
 
+def hour_to_slot(hour, minute):
+    """Конвертує годину:хвилину в номер часового слота (1-24)"""
+    if minute > 0:
+        return hour + 1 if hour < 23 else 24
+    return hour if hour > 0 else 24
+
+def get_outage_status(begin_str, end_str):
+    """Визначає статус вимкнення: yes, no, first, second"""
+    try:
+        begin = datetime.fromisoformat(begin_str)
+        end = datetime.fromisoformat(end_str)
+        duration_hours = (end - begin).total_seconds() / 3600
+        
+        if duration_hours < 0.5:
+            return "no"
+        elif duration_hours <= 1:
+            return "first" if begin.minute == 0 else "first"
+        elif duration_hours <= 2:
+            return "second"
+        else:
+            return "split"
+    except:
+        return "yes"
+
+def transform_to_gpv(all_outages):
+    """Трансформує дані в GPV формат"""
+    log("[TRANSFORM] Starting transformation to GPV format")
+    
+    # Ініціалізація структури
+    fact_data = {}
+    
+    # Групуємо вимкнення за датою
+    outages_by_date = {}
+    
+    for outage in all_outages:
+        try:
+            begin_dt = datetime.fromisoformat(outage['acc_begin'])
+            # Отримуємо Unix timestamp дня (початок дня в UTC)
+            date_only = begin_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+            unix_ts = int(date_only.timestamp())
+            
+            if unix_ts not in outages_by_date:
+                outages_by_date[unix_ts] = {}
+            
+            queue_key = outage['queue_key']
+            gpv_key = QUEUE_TO_GPV.get(queue_key)
+            
+            if gpv_key not in outages_by_date[unix_ts]:
+                outages_by_date[unix_ts][gpv_key] = {}
+            
+            # Визначаємо часові слоти
+            begin = datetime.fromisoformat(outage['acc_begin'])
+            end = datetime.fromisoformat(outage['accend_plan'])
+            start_slot = hour_to_slot(begin.hour, begin.minute)
+            end_slot = hour_to_slot(end.hour, end.minute)
+            
+            # Заповнюємо слоти статусом
+            for slot in range(start_slot, min(end_slot + 1, 25)):
+                outages_by_date[unix_ts][gpv_key][str(slot)] = "no"
+            
+            # Якщо вимкнення починається в половині години
+            if begin.minute > 0:
+                outages_by_date[unix_ts][gpv_key][str(start_slot)] = "first"
+            
+            # Якщо закінчується в половині години
+            if end.minute > 0 and end.hour < 23:
+                outages_by_date[unix_ts][gpv_key][str(end_slot)] = "second"
+        
+        except Exception as e:
+            log("[TRANSFORM] Error processing outage: " + str(e))
+    
+    # Заповнюємо решту слотів "yes"
+    for date_ts in outages_by_date:
+        for gpv_key in outages_by_date[date_ts]:
+            for slot in range(1, 25):
+                slot_str = str(slot)
+                if slot_str not in outages_by_date[date_ts][gpv_key]:
+                    outages_by_date[date_ts][gpv_key][slot_str] = "yes"
+    
+    return outages_by_date
+
 def save_results(all_outages):
-    """Зберегти результати у JSON"""
-    log("[SAVE] Writing Vinnytsiaoblenerho.json")
+    """Зберегти результати у JSON GPV формат"""
+    log("[SAVE] Transforming and writing GPV format")
     
-    # Отримати поточний час у Kyiv timezone для last_updated
+    # Отримати поточний час у Kyiv timezone
     kyiv_now = datetime.now(KYIV_TZ)
-    
-    # Форматуємо як строку без таймзони (YYYY-MM-DDTHH:MM:SS)
     last_updated_str = kyiv_now.strftime('%Y-%m-%dT%H:%M:%S')
+    update_fact_str = kyiv_now.strftime('%d.%m.%Y %H:%M')
     
+    # Трансформуємо дані
+    fact_data = transform_to_gpv(all_outages)
+    
+    # Отримуємо сьогоднішню дату як Unix timestamp
+    today_date = kyiv_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_ts = int(today_date.timestamp())
+    
+    # Створюємо結構
     result = {
-        "last_updated": last_updated_str,
-        "total_outages": len(all_outages),
-        "outages": all_outages
+        "regionId": "vinnytsia",
+        "lastUpdated": last_updated_str,
+        "fact": {
+            "data": fact_data,
+            "update": update_fact_str,
+            "today": today_ts
+        },
+        "preset": {
+            "days": {
+                "1": "Понеділок",
+                "2": "Вівторок",
+                "3": "Середа",
+                "4": "Четвер",
+                "5": "П'ятниця",
+                "6": "Субота",
+                "7": "Неділя"
+            },
+            "sch_names": {
+                "GPV1.1": "Черга 1.1",
+                "GPV1.2": "Черга 1.2",
+                "GPV2.1": "Черга 2.1",
+                "GPV2.2": "Черга 2.2",
+                "GPV3.1": "Черга 3.1",
+                "GPV3.2": "Черга 3.2",
+                "GPV4.1": "Черга 4.1",
+                "GPV4.2": "Черга 4.2",
+                "GPV5.1": "Черга 5.1",
+                "GPV5.2": "Черга 5.2",
+                "GPV6.1": "Черга 6.1",
+                "GPV6.2": "Черга 6.2"
+            },
+            "updateFact": update_fact_str
+        },
+        "lastUpdateStatus": {
+            "status": "parsed",
+            "ok": True,
+            "code": 200,
+            "message": None,
+            "at": kyiv_now.isoformat() + "Z",
+            "attempt": 1
+        },
+        "regionAffiliation": "Вінницька область"
     }
     
     # Створити папку data якщо не існує
@@ -227,7 +371,7 @@ def save_results(all_outages):
     with open(file_path, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
     
-    log("[SAVE] Success: " + str(len(all_outages)) + " outages saved to " + file_path)
+    log("[SAVE] Success: Saved to " + file_path)
 
 def main():
     log("=" * 70)
