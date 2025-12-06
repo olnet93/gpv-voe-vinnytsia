@@ -174,8 +174,8 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
                 ha='right')
         
         # === ЛЕГЕНДА З КЛІТИНКАМИ АНАЛОГІЧНО ТАБЛИЦІ ===
-        legend_y = 0.02  # Опущена нижче
-        legend_x_center = 0.5
+        legend_y = 0.02  # Низько
+        legend_x_center = 0.35  # Лівіше від центру, але в межах таблиці (таблиця 0.05-0.95)
         
         # Розміри клітинок в легенді (пропорційні до таблиці)
         table_fig_width = 0.9 - 0.05  # 0.85
@@ -183,7 +183,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
         cell_h_fig = (0.85 - 0.15) / table_height * cell_h  # пропорція cell_h (без заголовка)
         
         # Проміжок між елементами легенди
-        spacing = 0.18
+        spacing = 0.12
         
         # Елемент 1: Пуста біла клітинка - "Світло є"
         x1 = legend_x_center - 1.8 * spacing
@@ -218,7 +218,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
                                linewidth=0.5, edgecolor=BORDER, facecolor='none', 
                                transform=fig.transFigure, clip_on=False)
         fig.patches.append(rect_border)
-        fig.text(x3 + cell_w_fig/2 + 0.015, legend_y, 'Світла нема перші 30 хв.', fontsize=7, va='center')
+        fig.text(x3 + cell_w_fig/2 + 0.015, legend_y, 'Світла нема\nперші 30 хв.', fontsize=6, va='center')
         
         # Елемент 4: Права половина оранжева - "Світла нема другі 30 хв."
         x4 = legend_x_center + 1.8 * spacing
@@ -237,7 +237,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
                                linewidth=0.5, edgecolor=BORDER, facecolor='none', 
                                transform=fig.transFigure, clip_on=False)
         fig.patches.append(rect_border)
-        fig.text(x4 + cell_w_fig/2 + 0.015, legend_y, 'Світла нема другі 30 хв.', fontsize=7, va='center')
+        fig.text(x4 + cell_w_fig/2 + 0.015, legend_y, 'Світла нема\nдругі 30 хв.', fontsize=6, va='center')
         
         # Дата оновлення
         if last_updated:
