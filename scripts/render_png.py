@@ -51,15 +51,6 @@ def draw_cell(ax, x, y, w, h, state):
         rect_right = Rectangle((x + w/2, y), w/2, h, linewidth=0, facecolor=ORANGE)
         ax.add_patch(rect_right)
 
-def format_date(unix_ts):
-    """Форматувати дату у форматі '6 грудня'"""
-    months = ['січня', 'лютого', 'березня', 'квітня', 'травня', 'червня',
-              'липня', 'серпня', 'вересня', 'жовтня', 'листопада', 'грудня']
-    dt = datetime.fromtimestamp(int(unix_ts), tz=KYIV_TZ)
-    day = dt.day
-    month = months[dt.month - 1]
-    return f"{day} {month}"
-
 def render_schedule(json_path, gpv_key=None, out_path=None):
     """Рендерити розклад з 3 стрічками"""
     
@@ -83,48 +74,64 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
         queue_name = sch_names.get(gkey, gkey)
         
         # Таблична фігура з 3 стрічками
-        fig, ax = plt.subplots(figsize=(16, 5), dpi=100)
+        fig, ax = plt.subplots(figsize=(18, 6), dpi=100)
         fig.patch.set_facecolor(WHITE)
         ax.set_facecolor(WHITE)
         
         cell_w = 1
-        cell_h = 0.9
+        header_h = 1.3  # Вища стрічка заголовків
+        data_h = 0.9    # Звичайна висота для даних
         row_gap = 0.15
         
+        label_w = 2.0   # Ширша ліва колонка
+        
         # Рядки: 0 - заголовки часів, 1 - сьогодні, 2 - завтра
-        rows = [
-            ('Часові проміжки', HOURS, 'header', None),
-            (f"6 грудня", None, 'data', today_slots),
-            (f"7 грудня", None, 'data', tomorrow_slots),
-        ]
+        y_pos = 2.3
         
-        y_pos = 2
+        # === РЯДОК 1: Заголовки часів ===
+        rect_label = Rectangle((-label_w, y_pos), label_w, header_h, 
+                              linewidth=1, edgecolor=DARK_GRAY, 
+                              facecolor=HEADER_BG)
+        ax.add_patch(rect_label)
+        ax.text(-label_w/2, y_pos + header_h/2, 'Часові проміжки', fontsize=9, 
+               ha='center', va='center', fontweight='bold', color=BLACK)
         
-        for row_label, row_data, row_type, slots_data in rows:
-            # Лівий лейбл (назва рядку)
-            rect_label = Rectangle((-1, y_pos), 0.95, cell_h, 
-                                  linewidth=1, edgecolor=DARK_GRAY, 
-                                  facecolor=HEADER_BG if row_type == 'header' else LIGHT_GRAY)
-            ax.add_patch(rect_label)
-            ax.text(-0.525, y_pos + cell_h/2, row_label, fontsize=8, 
-                   ha='center', va='center', fontweight='bold', color=BLACK)
-            
-            if row_type == 'header':
-                # Заголовок з часами
-                for i, hour_label in enumerate(HOURS):
-                    draw_cell(ax, i, y_pos, cell_w, cell_h, 'yes')
-                    ax.text(i + 0.5, y_pos + cell_h/2, hour_label, fontsize=6.5, 
-                           ha='center', va='center', color=BLACK)
-            else:
-                # Данні слотів
-                for i, slot in enumerate(SLOTS):
-                    state = slots_data.get(slot, 'yes')
-                    draw_cell(ax, i, y_pos, cell_w, cell_h, state)
-            
-            y_pos -= (cell_h + row_gap)
+        for i, hour_label in enumerate(HOURS):
+            draw_cell(ax, i, y_pos, cell_w, header_h, 'yes')
+            # Текст повернений на 90 градусів
+            ax.text(i + 0.5, y_pos + header_h/2, hour_label, fontsize=6, 
+                   ha='center', va='center', color=BLACK, rotation=90)
         
-        ax.set_xlim(-1.2, 24)
-        ax.set_ylim(y_pos - 0.5, 2.8)
+        y_pos -= (header_h + row_gap)
+        
+        # === РЯДОК 2: Сьогодні ===
+        rect_label = Rectangle((-label_w, y_pos), label_w, data_h, 
+                              linewidth=1, edgecolor=DARK_GRAY, 
+                              facecolor=LIGHT_GRAY)
+        ax.add_patch(rect_label)
+        ax.text(-label_w/2, y_pos + data_h/2, '6 грудня', fontsize=9, 
+               ha='center', va='center', fontweight='bold', color=BLACK)
+        
+        for i, slot in enumerate(SLOTS):
+            state = today_slots.get(slot, 'yes')
+            draw_cell(ax, i, y_pos, cell_w, data_h, state)
+        
+        y_pos -= (data_h + row_gap)
+        
+        # === РЯДОК 3: Завтра ===
+        rect_label = Rectangle((-label_w, y_pos), label_w, data_h, 
+                              linewidth=1, edgecolor=DARK_GRAY, 
+                              facecolor=LIGHT_GRAY)
+        ax.add_patch(rect_label)
+        ax.text(-label_w/2, y_pos + data_h/2, '7 грудня', fontsize=9, 
+               ha='center', va='center', fontweight='bold', color=BLACK)
+        
+        for i, slot in enumerate(SLOTS):
+            state = tomorrow_slots.get(slot, 'yes')
+            draw_cell(ax, i, y_pos, cell_w, data_h, state)
+        
+        ax.set_xlim(-label_w - 0.2, 24)
+        ax.set_ylim(y_pos - 0.5, 3.8)
         ax.set_aspect('equal')
         
         ax.set_xticks([])
@@ -134,10 +141,10 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
         
         # Заголовок
         title = f"Графік відключень: {queue_name}"
-        fig.suptitle(title, fontsize=13, fontweight='bold', y=0.97)
+        fig.suptitle(title, fontsize=14, fontweight='bold', y=0.97)
         
         if last_updated:
-            fig.text(0.5, 0.92, f"Дата та час останнього оновлення інформації на графіку: {last_updated}", 
+            fig.text(0.5, 0.91, f"Дата та час останнього оновлення інформації на графіку: {last_updated}", 
                     ha='center', fontsize=8, color='#666666')
         
         # Легенда
@@ -159,7 +166,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
             draw_cell(ax_leg, x, 0.3, cell_size, cell_size, state)
             ax_leg.text(x + cell_size + 0.15, 0.425, label, fontsize=7.5, va='center')
         
-        plt.tight_layout(rect=[0, 0.12, 1, 0.90])
+        plt.tight_layout(rect=[0, 0.12, 1, 0.88])
         
         # Зберегти
         if out_path:
