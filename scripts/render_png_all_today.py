@@ -64,7 +64,7 @@ def render_all_schedules(json_path, out_path=None):
     
     # Розміри клітинок
     cell_w = 1.0
-    cell_h = 1.0  # Збільшена на 1.0 для всіх рядків
+    cell_h = 1.0  # Збільшена з 0.5 на 1.0 (в два рази вище)
     label_w = 2.0
     header_h = 1.2
     
