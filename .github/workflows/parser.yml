@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write  # ✅ Дозволити писати у репозиторій
+  contents: write  # ✅ Дозволяє пушити зміни
 
 jobs:
   parse:
@@ -51,5 +51,12 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add -A
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Update e-svitlo data: $(date)" && git push)
+          
+          # Явно додаємо наш файл
+          git add data/Vinnytsiaoblenerho.json
+          
+          # Комітимо зміни. Якщо змін немає, команда поверне помилку, 
+          # але "|| exit 0" перехопить її та завершить крок успішно (зеленим).
+          git commit -m "Update e-svitlo data: $(date -u)" || exit 0
+          
+          git push
