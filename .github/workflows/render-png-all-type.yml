@@ -19,17 +19,17 @@ jobs:
       - name: Install dependencies
         run: pip install matplotlib numpy
       
-      - name: Download JSON data
+      - name: Download JSON data from repository
         run: |
-          curl -o Vinnytsiaoblenerho.json /data/Vinnytsiaoblenerho.json
+          cp data/Vinnytsiaoblenerho.json Vinnytsiaoblenerho.json
       
       - name: Generate individual schedules
         run: |
-          python render_png.py --json Vinnytsiaoblenerho.json --out ./output
+          python scripts/render_png.py --json Vinnytsiaoblenerho.json --out ./output
       
       - name: Generate all schedules today
         run: |
-          python render_png_all_today.py --json Vinnytsiaoblenerho.json --out ./output
+          python scripts/render_all_today.py --json Vinnytsiaoblenerho.json --out ./output
       
       - name: Commit and push
         run: |
