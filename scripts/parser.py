@@ -373,7 +373,15 @@ def save_results(all_outages):
     
     # Отримати поточний час у Kyiv timezone
     kyiv_now = datetime.now(KYIV_TZ)
-    last_updated_str = kyiv_now.isoformat(timespec='milliseconds') + 'Z'
+    
+    # -----------------------------------------------------------
+    # ВИПРАВЛЕННЯ: Конвертуємо в UTC для генерації формату з "Z"
+    # -----------------------------------------------------------
+    utc_now = kyiv_now.astimezone(timezone.utc)
+    # +00:00 замінюємо на Z
+    last_updated_str = utc_now.isoformat(timespec='milliseconds').replace('+00:00', 'Z')
+    
+    # Текстова дата оновлення (залишається по Києву)
     update_fact_str = kyiv_now.strftime('%d.%m.%Y %H:%M')
     
     # Трансформуємо дані
@@ -386,7 +394,7 @@ def save_results(all_outages):
     # Створюємо структуру
     result = {
         "regionId": "vinnytsia",
-        "lastUpdated": last_updated_str,
+        "lastUpdated": last_updated_str, # Тепер буде коректний UTC формат (напр. 2025-12-07T00:01:12.057Z)
         "fact": {
             "data": fact_data,
             "update": update_fact_str,
@@ -423,7 +431,7 @@ def save_results(all_outages):
             "ok": True,
             "code": 200,
             "message": None,
-            "at": kyiv_now.isoformat(timespec='milliseconds') + 'Z',
+            "at": last_updated_str, # Використовуємо коректну змінну
             "attempt": 1
         },
         "regionAffiliation": "Вінницька область"
