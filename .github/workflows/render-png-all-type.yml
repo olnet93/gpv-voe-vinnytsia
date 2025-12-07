@@ -5,13 +5,14 @@ on:
     - cron: '*/10 * * * *'  # Кожні 10 хвилин
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   generate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -42,7 +43,5 @@ jobs:
             echo "No changes to commit"
           else
             git commit -m "Update schedules $(date)"
-            git push
+            git push origin main
           fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
