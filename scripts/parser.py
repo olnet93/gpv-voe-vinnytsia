@@ -349,13 +349,15 @@ def transform_to_gpv(all_outages, kyiv_now):
                             slots[str(slot)] = "no"
                     
                     # Логіка first/second
-                    # 'first': якщо вимкнення починається в половині години
-                    if start_minute == 30 and start_slot <= 24:
-                        slots[str(start_slot)] = "first"
+                    # 'second': якщо acc_begin має дробову частину (start_minute ≠ 0)
+                    if start_minute != 0 and start_slot <= 24:
+                        slots[str(start_slot)] = "second"
                     
-                    # 'first': якщо вимкнення закінчується в половині години
-                    if end_minute >= 30 and end_slot - 1 <= 24:
-                        slots[str(end_slot - 1)] = "first"
+                    # 'first': якщо accend_plan має дробову частину (end_minute ≠ 0)
+                    # НЕ враховуємо 23:59:59 (кінець дня)
+                    if end_minute != 0 and end_slot - 1 <= 24:
+                        if not (end_hour == 23 and end_minute == 59):
+                            slots[str(end_slot - 1)] = "first"
             
             fact_data[str(unix_ts)][gpv_key] = slots
     
@@ -372,9 +374,9 @@ def save_results(all_outages):
     # Отримати поточний час у Kyiv timezone
     kyiv_now = datetime.now(KYIV_TZ)
     
-    # ==========================================================
-    # ВИПРАВЛЕННЯ: Використовуємо Unix timestamp
-    # ==========================================================
+    # -----------------------------------------------------------
+    # ВИКОРИСТОВУЄМО UNIX TIMESTAMP (Integer)
+    # -----------------------------------------------------------
     last_updated_ts = int(kyiv_now.timestamp())
     
     # Текстова дата оновлення для відображення людям (залишається по Києву)
@@ -390,7 +392,7 @@ def save_results(all_outages):
     # Створюємо структуру
     result = {
         "regionId": "vinnytsia",
-        "lastUpdated": last_updated_ts, # Змінено на timestamp
+        "lastUpdated": last_updated_ts,
         "fact": {
             "data": fact_data,
             "update": update_fact_str,
@@ -427,7 +429,7 @@ def save_results(all_outages):
             "ok": True,
             "code": 200,
             "message": None,
-            "at": last_updated_ts, # Змінено на timestamp
+            "at": last_updated_ts,
             "attempt": 1
         },
         "regionAffiliation": "Вінницька область"
