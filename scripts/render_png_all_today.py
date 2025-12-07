@@ -64,7 +64,7 @@ def render_all_schedules(json_path, out_path=None):
     
     # Розміри клітинок
     cell_w = 1.0
-    cell_h = 0.5
+    cell_h = 1.0  # Збільшена з 0.5 на 1.0 (в два рази вище)
     label_w = 2.0
     header_h = 1.2
     
@@ -73,7 +73,7 @@ def render_all_schedules(json_path, out_path=None):
     table_height = header_h + num_schedules * cell_h
     
     # Висота фігури залежить від кількості графіків
-    fig_height = 1.5 + (num_schedules * 0.15)
+    fig_height = 1.5 + (num_schedules * 0.3)
     
     fig, ax = plt.subplots(figsize=(20, fig_height), dpi=100)
     fig.patch.set_facecolor(WHITE)
@@ -107,7 +107,7 @@ def render_all_schedules(json_path, out_path=None):
         # Ліва клітинка з назвою черги
         rect = Rectangle((0, y_pos), label_w, cell_h, linewidth=1, edgecolor=BORDER, facecolor=GRAY_LABEL)
         ax.add_patch(rect)
-        ax.text(label_w/2, y_pos + cell_h/2, queue_name, fontsize=10, ha='center', va='center',
+        ax.text(label_w/2, y_pos + cell_h/2, queue_name, fontsize=12, ha='center', va='center',
                fontweight='bold', color='#000000')
         
         # Слоти
