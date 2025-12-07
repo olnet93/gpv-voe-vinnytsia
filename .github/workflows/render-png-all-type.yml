@@ -2,7 +2,7 @@ name: Render PNG all type Schedule
 
 on:
   schedule:
-    - cron: '*/10 * * * *'  # Кожні 10 хвилин
+    - cron: '6,16,26,36,46,56 * * * *'  # На 06, 16, 26, 36, 46, 56 хвилину кожної години
   workflow_dispatch:
 
 permissions:
