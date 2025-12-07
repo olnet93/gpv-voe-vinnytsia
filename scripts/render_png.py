@@ -25,7 +25,7 @@ GRAY_LABEL = '#D9D9D9'
 BORDER = '#808080'
 
 SLOTS = list(range(1, 25))
-HOURS = [f'{i:02d}-{i+1:02d}' for i in range(24)]
+HOURS = [f'{i:02d}\n-\n{i+1:02d}' for i in range(24)]  # Багаторядковий формат
 
 # Таймзона Київ (UTC+2)
 KYIV_TZ = timezone(timedelta(hours=2))
@@ -81,7 +81,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
         
         # Розміри клітинок
         cell_w = 1.0
-        cell_h = 0.5
+        cell_h = 1.0
         label_w = 2.0
         header_h = 1.2
         
@@ -104,8 +104,8 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
             x = label_w + i * cell_w
             rect = Rectangle((x, y_pos), cell_w, header_h, linewidth=1, edgecolor=BORDER, facecolor=GRAY_HEADER)
             ax.add_patch(rect)
-            ax.text(x + cell_w/2, y_pos + header_h/2, HOURS[i], fontsize=10, ha='center', va='center',
-                   fontweight='bold', color='#000000')
+            ax.text(x + cell_w/2, y_pos + header_h/2, HOURS[i], fontsize=8, ha='center', va='center',
+                   fontweight='bold', color='#000000', linespacing=1.5)
         
         y_pos += header_h
         
