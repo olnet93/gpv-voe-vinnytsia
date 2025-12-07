@@ -64,7 +64,7 @@ def render_all_schedules(json_path, out_path=None):
     
     # Розміри клітинок
     cell_w = 1.0
-    cell_h = 0.5
+    cell_h = 1.0
     label_w = 2.0
     header_h = 1.2
     
@@ -73,7 +73,7 @@ def render_all_schedules(json_path, out_path=None):
     table_height = header_h + num_schedules * cell_h
     
     # Висота фігури залежить від кількості графіків
-    fig_height = 1.5 + (num_schedules * 0.15)
+    fig_height = 1.5 + (num_schedules * 3)
     
     fig, ax = plt.subplots(figsize=(20, fig_height), dpi=100)
     fig.patch.set_facecolor(WHITE)
