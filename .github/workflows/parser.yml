@@ -2,7 +2,7 @@ name: Parse e-svitlo Data
 
 on:
   schedule:
-    - cron: '*/10 * * * *'  # Кожні 10 хвилин
+    - cron: '1,11,21,31,41,51 * * * *'  # На 01, 11, 21, 31, 41, 51 хвилину кожної години
   workflow_dispatch:
 
 permissions:
