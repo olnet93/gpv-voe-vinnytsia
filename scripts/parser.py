@@ -11,6 +11,15 @@ def save_results(all_outages):
     # Це універсальний формат, який не залежить від таймзони сервера.
     # -----------------------------------------------------------
     last_updated_ts = int(kyiv_now.timestamp())
+
+ - name: Debug - Check files
+        run: |
+          echo "=== PWD ==="
+          pwd
+          echo "=== LS scripts/ ==="
+          ls -la scripts/
+          echo "=== CONTENT of parser.py ==="
+          cat scripts/parser.py
     
     # Текстова дата оновлення для відображення людям (залишається по Києву)
     update_fact_str = kyiv_now.strftime('%d.%m.%Y %H:%M')
