@@ -28,17 +28,17 @@ jobs:
       
       - name: Generate individual schedules
         run: |
-          python scripts/render_png.py --json Vinnytsiaoblenerho.json --out ./output
-      
+          python scripts/render_png.py --json Vinnytsiaoblenerho.json --out .//images/Vinnytsiaoblenerho
+    
       - name: Generate all schedules today
         run: |
-          python scripts/render_png_all_today.py --json Vinnytsiaoblenerho.json --out ./output
+          python scripts/render_png_all_today.py --json Vinnytsiaoblenerho.json --out ./images/Vinnytsiaoblenerho
       
       - name: Commit and push
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add output/
+          git add images/Vinnytsiaoblenerho/
           if git diff --quiet --cached; then
             echo "No changes to commit"
           else
