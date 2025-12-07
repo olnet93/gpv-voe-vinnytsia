@@ -40,7 +40,7 @@ jobs:
           ESVITLO_EIC_5_2: ${{ secrets.ESVITLO_EIC_5_2 }}
           ESVITLO_EIC_6_1: ${{ secrets.ESVITLO_EIC_6_1 }}
           ESVITLO_EIC_6_2: ${{ secrets.ESVITLO_EIC_6_2 }}
-        run: python parser.py
+        run: python scripts/parser.py
       
       - name: Commit and push
         run: |
