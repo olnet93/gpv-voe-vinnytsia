@@ -83,7 +83,7 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
         cell_w = 1.0
         cell_h = 0.5
         label_w = 2.0
-        header_h = 1.2
+        header_h = 0.7
         
         # Розміри таблиці для вирівнювання
         table_width = label_w + 24 * cell_w  # 26 одиниць
