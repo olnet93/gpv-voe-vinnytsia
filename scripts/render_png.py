@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-Schedule PNG Renderer - таблиця як на картинці без текстових позначень
+Schedule PNG Renderer - окремі таблиці (2 дні на одну чергу)
+Генерує PNG тільки якщо дані змінилися (за хешем)
+Хеші зберігаються в папці hash/
 """
 
 import json
@@ -8,7 +10,7 @@ import argparse
 from pathlib import Path
 import sys
 from datetime import datetime, timezone, timedelta
-import re
+import hashlib
 
 try:
     import matplotlib.pyplot as plt
@@ -25,7 +27,7 @@ GRAY_LABEL = '#D9D9D9'
 BORDER = '#808080'
 
 SLOTS = list(range(1, 25))
-HOURS = [f'{i:02d}\n-\n{i+1:02d}' for i in range(24)]  # Багаторядковий формат
+HOURS = [f'{i:02d}\n-\n{i+1:02d}' for i in range(24)]
 
 # Таймзона Київ (UTC+2)
 KYIV_TZ = timezone(timedelta(hours=2))
@@ -33,11 +35,50 @@ KYIV_TZ = timezone(timedelta(hours=2))
 def format_gpv_filename(gpv_key):
     """
     Перетворює GPV2.1 -> gpv-2-1-emergency.png
-    Перетворює GPV-2-1 -> gpv-2-1-emergency.png
     """
-    # Видаляємо префікс GPV та замінюємо крапку на дефіс
     cleaned = gpv_key.replace('GPV', '').replace('.', '-').lstrip('-')
     return f"gpv-{cleaned}-emergency.png"
+
+def format_hash_filename(gpv_key):
+    """
+    Перетворює GPV2.1 -> gpv-2-1-emergency.hash
+    """
+    cleaned = gpv_key.replace('GPV', '').replace('.', '-').lstrip('-')
+    return f"gpv-{cleaned}-emergency.hash"
+
+def calculate_data_hash(today_data, tomorrow_data, gpv_key):
+    """Розраховує SHA256 хеш даних для конкретної черги"""
+    data_str = json.dumps({
+        'today': today_data.get(gpv_key, {}),
+        'tomorrow': tomorrow_data.get(gpv_key, {})
+    }, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(data_str.encode()).hexdigest()
+
+def load_previous_hash(hash_dir, gpv_key):
+    """Завантажує попередній хеш з папки hash/"""
+    hash_filename = format_hash_filename(gpv_key)
+    hash_file = hash_dir / hash_filename
+    
+    if hash_file.exists():
+        try:
+            with open(hash_file, 'r', encoding='utf-8') as f:
+                return f.read().strip()
+        except Exception as e:
+            print(f"[WARN] Could not read hash file {hash_file}: {e}")
+    return None
+
+def save_hash(hash_dir, gpv_key, data_hash):
+    """Зберігає хеш даних у папку hash/"""
+    hash_dir.mkdir(parents=True, exist_ok=True)
+    
+    hash_filename = format_hash_filename(gpv_key)
+    hash_file = hash_dir / hash_filename
+    
+    try:
+        with open(hash_file, 'w', encoding='utf-8') as f:
+            f.write(data_hash)
+    except Exception as e:
+        print(f"[WARN] Could not save hash file {hash_file}: {e}")
 
 def render_schedule(json_path, gpv_key=None, out_path=None):
     """Рендерити розклад"""
@@ -70,11 +111,47 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
     
     gpv_keys = [gpv_key] if gpv_key else sorted([k for k in today_data if k.startswith('GPV')])
     
+    # Створюємо папку images/Vinnytsiaoblenerho та папку hash всередині неї
+    if out_path:
+        out_p = Path(out_path)
+        out_p.mkdir(parents=True, exist_ok=True)
+        hash_dir = out_p / 'hash'
+    else:
+        out_p = Path('.')
+        hash_dir = out_p / 'hash'
+    
+    stats = {
+        'checked': 0,
+        'skipped': 0,
+        'generated': 0,
+    }
+    
     for gkey in gpv_keys:
+        stats['checked'] += 1
+        
         today_slots = today_data.get(gkey, {str(i): 'yes' for i in range(1, 25)})
         tomorrow_slots = tomorrow_data.get(gkey, {str(i): 'yes' for i in range(1, 25)})
         queue_name = sch_names.get(gkey, gkey)
         
+        # === ПЕРЕВІРЯЄМО ХЕШ ===
+        filename = format_gpv_filename(gkey)
+        output_file = out_p / filename
+        
+        # Розраховуємо новий хеш
+        new_hash = calculate_data_hash(today_data, tomorrow_data, gkey)
+        
+        # Завантажуємо попередній хеш
+        prev_hash = load_previous_hash(hash_dir, gkey)
+        
+        # Якщо хеші збігаються, пропускаємо генерацію
+        if new_hash == prev_hash and output_file.exists():
+            print(f"[SKIP] {filename} (no data changes)")
+            stats['skipped'] += 1
+            continue
+        
+        stats['generated'] += 1
+        
+        # === ГЕНЕРУЄМО PNG ===
         fig, ax = plt.subplots(figsize=(20, 3.5), dpi=100)
         fig.patch.set_facecolor(WHITE)
         ax.set_facecolor(WHITE)
@@ -271,19 +348,17 @@ def render_schedule(json_path, gpv_key=None, out_path=None):
         if last_updated:
             fig.text(0.8, 0.001, f'Опубліковано {last_updated}', fontsize=11, ha='right', style='italic')
         
-        # === ЗБЕРЕЖЕННЯ З ПРАВИЛЬНОЮ НАЗВОЮ ===
-        filename = format_gpv_filename(gkey)
-        
-        if out_path:
-            out_p = Path(out_path)
-            out_p.mkdir(parents=True, exist_ok=True)
-            output_file = out_p / filename
-        else:
-            output_file = Path(filename)
-        
+        # === ЗБЕРЕЖЕННЯ PNG ===
         plt.savefig(output_file, facecolor=WHITE, dpi=150, bbox_inches='tight', pad_inches=0.13)
         print(f"[OK] {output_file}")
+        
+        # Зберігаємо хеш в папку hash/
+        save_hash(hash_dir, gkey, new_hash)
+        
         plt.close()
+    
+    # Вивід статистики
+    print(f"\n[STATS] Checked: {stats['checked']}, Generated: {stats['generated']}, Skipped: {stats['skipped']}")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
