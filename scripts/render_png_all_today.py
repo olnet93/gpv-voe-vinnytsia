@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
 Schedule PNG Renderer - таблиця усіх графіків на сьогодні
+Генерує PNG тільки якщо дані змінилися (за хешем)
+Хеші зберігаються в папці hash/
 """
 
 import json
@@ -8,6 +10,7 @@ import argparse
 from pathlib import Path
 import sys
 from datetime import datetime, timezone, timedelta
+import hashlib
 
 try:
     import matplotlib.pyplot as plt
@@ -29,6 +32,35 @@ HOURS = [f'{i:02d}-{i+1:02d}' for i in range(24)]
 # Таймзона Київ (UTC+2)
 KYIV_TZ = timezone(timedelta(hours=2))
 
+def calculate_all_today_hash(today_data):
+    """Розраховує SHA256 хеш всіх даних на сьогодні"""
+    data_str = json.dumps(today_data, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(data_str.encode()).hexdigest()
+
+def load_previous_hash(hash_dir):
+    """Завантажує попередній хеш з папки hash/"""
+    hash_file = hash_dir / 'gpv-all-today.hash'
+    
+    if hash_file.exists():
+        try:
+            with open(hash_file, 'r', encoding='utf-8') as f:
+                return f.read().strip()
+        except Exception as e:
+            print(f"[WARN] Could not read hash file {hash_file}: {e}")
+    return None
+
+def save_hash(hash_dir, data_hash):
+    """Зберігає хеш даних у папку hash/"""
+    hash_dir.mkdir(parents=True, exist_ok=True)
+    
+    hash_file = hash_dir / 'gpv-all-today.hash'
+    
+    try:
+        with open(hash_file, 'w', encoding='utf-8') as f:
+            f.write(data_hash)
+    except Exception as e:
+        print(f"[WARN] Could not save hash file {hash_file}: {e}")
+
 def render_all_schedules(json_path, out_path=None):
     """Рендерити всі графіки на сьогодні в одну таблицю"""
     
@@ -41,6 +73,28 @@ def render_all_schedules(json_path, out_path=None):
     today_ts = str(data.get('fact', {}).get('today'))
     
     today_data = fact_data.get(today_ts, {})
+    
+    # Папка для виходу
+    if out_path:
+        out_p = Path(out_path)
+        out_p.mkdir(parents=True, exist_ok=True)
+        hash_dir = out_p / 'hash'
+    else:
+        out_p = Path('.')
+        hash_dir = out_p / 'hash'
+    
+    # === ПЕРЕВІРЯЄМО ХЕШ ===
+    new_hash = calculate_all_today_hash(today_data)
+    prev_hash = load_previous_hash(hash_dir)
+    
+    output_file = out_p / 'gpv-all-today.png'
+    
+    # Якщо хеші збігаються, пропускаємо генерацію
+    if new_hash == prev_hash and output_file.exists():
+        print(f"[SKIP] gpv-all-today.png (no data changes)")
+        return
+    
+    print(f"[GENERATE] gpv-all-today.png")
     
     # Отримуємо дату з таймзоною Київ
     today_date = datetime.fromtimestamp(int(today_ts), tz=KYIV_TZ)
@@ -221,15 +275,12 @@ def render_all_schedules(json_path, out_path=None):
         fig.text(0.8, 0.001, f'Опубліковано {last_updated}', fontsize=11, ha='right', style='italic')
     
     # === ЗБЕРЕЖЕННЯ ===
-    if out_path:
-        out_p = Path(out_path)
-        out_p.mkdir(parents=True, exist_ok=True)
-        output_file = out_p / "gpv-all-today.png"
-    else:
-        output_file = Path("gpv-all-today.png")
-    
     plt.savefig(output_file, facecolor=WHITE, dpi=150, bbox_inches='tight', pad_inches=0.13)
     print(f"[OK] {output_file}")
+    
+    # Зберігаємо хеш в папку hash/
+    save_hash(hash_dir, new_hash)
+    
     plt.close()
 
 if __name__ == '__main__':
