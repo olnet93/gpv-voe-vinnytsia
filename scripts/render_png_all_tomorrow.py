@@ -75,11 +75,18 @@ def find_tomorrow_key(data_dict):
     for key in data_dict.keys():
         # Спробуємо конвертувати ключ у число, незалежно від формату
         try:
-            ts = int(float(key))  # Впорається з "1.7652312e+09" та "1765231200"
+            # ВАЖЛИВО: int() перш за все, щоб отримати справжнє ціле число
+            ts = int(float(key))
+            # Експліцитна конвертація для впевненості
+            ts = int(ts)
         except (ValueError, TypeError):
             continue
         
-        key_date = datetime.fromtimestamp(ts, KYIV_TZ)
+        try:
+            key_date = datetime.fromtimestamp(ts, KYIV_TZ)
+        except (OSError, ValueError):
+            # Таймстемп може бути невалідним
+            continue
         
         if key_date.day == target_day and key_date.month == target_month:
             return key, key_date
