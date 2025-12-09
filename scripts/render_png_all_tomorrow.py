@@ -3,7 +3,7 @@
 Schedule PNG Renderer - таблиця усіх графіків на завтра
 Генерує PNG тільки якщо дані змінилися (за хешем)
 Хеші зберігаються в папці hash/
-Правильно розраховує дату завтра за Київським часом
+Використовує той же метод розрахунку дати, що й render_schedule.py
 """
 
 import json
@@ -31,8 +31,7 @@ SLOTS = list(range(1, 25))
 HOURS = [f'{i:02d}-{i+1:02d}' for i in range(24)]
 
 # Таймзона Київ (UTC+2)
-KYIV_OFFSET = timedelta(hours=2)
-KYIV_TZ = timezone(KYIV_OFFSET)
+KYIV_TZ = timezone(timedelta(hours=2))
 
 def calculate_all_tomorrow_hash(tomorrow_data):
     """Розраховує SHA256 хеш всіх даних на завтра"""
@@ -63,65 +62,6 @@ def save_hash(hash_dir, data_hash):
     except Exception as e:
         print(f"[WARN] Could not save hash file {hash_file}: {e}")
 
-def find_tomorrow_key(data_dict):
-    """
-    Шукає в словнику ключ (timestamp), який відповідає ЗАВТРАШНІЙ даті
-    відносно реального часу в Києві.
-    
-    Стратегія:
-    1. Спробуємо знайти точну дату завтра
-    2. Якщо не знайдемо - беремо максимальний доступний таймстемп (найновіші дані)
-    """
-    now_utc = datetime.now(timezone.utc)
-    now_kyiv = now_utc + KYIV_OFFSET
-    tomorrow_kyiv = now_kyiv + timedelta(days=1)
-    
-    target_day = tomorrow_kyiv.day
-    target_month = tomorrow_kyiv.month
-    target_year = tomorrow_kyiv.year
-
-    # Спочатку шукаємо точно завтрашню дату
-    for key in data_dict.keys():
-        try:
-            ts = int(float(key))
-        except (ValueError, TypeError):
-            continue
-        
-        try:
-            key_date = datetime.fromtimestamp(ts, KYIV_TZ)
-        except (OSError, ValueError):
-            continue
-        
-        if (key_date.day == target_day and 
-            key_date.month == target_month and 
-            key_date.year == target_year):
-            return key, key_date
-
-    # Якщо завтра не знайдемо, беремо максимальний таймстемп 
-    # (найновіші доступні дані, які можуть бути завтрашніми)
-    max_ts = None
-    max_key = None
-    
-    for key in data_dict.keys():
-        try:
-            ts = int(float(key))
-            if max_ts is None or ts > max_ts:
-                max_ts = ts
-                max_key = key
-        except (ValueError, TypeError):
-            continue
-    
-    if max_key:
-        try:
-            max_date = datetime.fromtimestamp(max_ts, KYIV_TZ)
-            # Перевіряємо, чи це дійсно завтра або пізніше
-            if max_date.date() >= tomorrow_kyiv.date():
-                return max_key, max_date
-        except (OSError, ValueError):
-            pass
-
-    return None, None
-
 def render_all_tomorrow_schedules(json_path, out_path=None):
     """Рендерити всі графіки на завтра в одну таблицю"""
     
@@ -132,14 +72,17 @@ def render_all_tomorrow_schedules(json_path, out_path=None):
     sch_names = data.get('preset', {}).get('sch_names', {})
     last_updated = data.get('fact', {}).get('update', '')
     
-    # === ШУКАЄМО ЗАВТРА ПО КИЇВСЬКОМУ ЧАСУ ===
-    tomorrow_ts, tomorrow_date = find_tomorrow_key(fact_data)
+    # === РОЗРАХОВУЄМО ЗАВТРА ЯК У render_schedule.py ===
+    today_ts = str(data.get('fact', {}).get('today'))
+    tomorrow_ts = str(int(today_ts) + 86400)
     
-    if not tomorrow_ts:
-        print(f"[SKIP] gpv-all-tomorrow.png (No data found for tomorrow)")
-        return
+    print(f"[INFO] today_ts={today_ts}, tomorrow_ts={tomorrow_ts}")
     
     tomorrow_data = fact_data.get(tomorrow_ts, {})
+    
+    # Отримуємо дату завтра з таймзоною Київ
+    tomorrow_date = datetime.fromtimestamp(int(tomorrow_ts), tz=KYIV_TZ)
+    print(f"[INFO] Tomorrow date: {tomorrow_date.strftime('%d.%m.%Y %H:%M:%S')}")
     
     # Папка для виходу
     if out_path:
@@ -155,6 +98,10 @@ def render_all_tomorrow_schedules(json_path, out_path=None):
     prev_hash = load_previous_hash(hash_dir)
     
     output_file = out_p / 'gpv-all-tomorrow.png'
+    
+    print(f"[INFO] New hash: {new_hash[:16]}...")
+    print(f"[INFO] Prev hash: {prev_hash[:16] if prev_hash else 'None'}...")
+    print(f"[INFO] File exists: {output_file.exists()}")
     
     # Якщо хеші збігаються, пропускаємо генерацію
     if new_hash == prev_hash and output_file.exists():
@@ -174,6 +121,8 @@ def render_all_tomorrow_schedules(json_path, out_path=None):
     
     # Отримуємо всі GPV ключі з завтра
     gpv_keys = sorted([k for k in tomorrow_data if k.startswith('GPV')])
+    
+    print(f"[INFO] Found {len(gpv_keys)} GPV schedules")
     
     num_schedules = len(gpv_keys)
     
