@@ -62,8 +62,11 @@ def save_hash(hash_dir, data_hash):
 def find_tomorrow_key(data_dict):
     """
     Шукає в словнику ключ (timestamp), який відповідає ЗАВТРАШНІЙ даті
-    відносно реального часу в Київі.
-    Впорається з науковою нотацією ключів (1.7652312e+09).
+    відносно реального часу в Києві.
+    
+    Стратегія:
+    1. Спробуємо знайти точну дату завтра
+    2. Якщо не знайдемо - беремо максимальний доступний таймстемп (найновіші дані)
     """
     now_utc = datetime.now(timezone.utc)
     now_kyiv = now_utc + KYIV_OFFSET
@@ -71,25 +74,47 @@ def find_tomorrow_key(data_dict):
     
     target_day = tomorrow_kyiv.day
     target_month = tomorrow_kyiv.month
+    target_year = tomorrow_kyiv.year
 
+    # Спочатку шукаємо точно завтрашню дату
     for key in data_dict.keys():
-        # Спробуємо конвертувати ключ у число, незалежно від формату
         try:
-            # ВАЖЛИВО: int() перш за все, щоб отримати справжнє ціле число
             ts = int(float(key))
-            # Експліцитна конвертація для впевненості
-            ts = int(ts)
         except (ValueError, TypeError):
             continue
         
         try:
             key_date = datetime.fromtimestamp(ts, KYIV_TZ)
         except (OSError, ValueError):
-            # Таймстемп може бути невалідним
             continue
         
-        if key_date.day == target_day and key_date.month == target_month:
+        if (key_date.day == target_day and 
+            key_date.month == target_month and 
+            key_date.year == target_year):
             return key, key_date
+
+    # Якщо завтра не знайдемо, беремо максимальний таймстемп 
+    # (найновіші доступні дані, які можуть бути завтрашніми)
+    max_ts = None
+    max_key = None
+    
+    for key in data_dict.keys():
+        try:
+            ts = int(float(key))
+            if max_ts is None or ts > max_ts:
+                max_ts = ts
+                max_key = key
+        except (ValueError, TypeError):
+            continue
+    
+    if max_key:
+        try:
+            max_date = datetime.fromtimestamp(max_ts, KYIV_TZ)
+            # Перевіряємо, чи це дійсно завтра або пізніше
+            if max_date.date() >= tomorrow_kyiv.date():
+                return max_key, max_date
+        except (OSError, ValueError):
+            pass
 
     return None, None
 
@@ -103,7 +128,7 @@ def render_all_tomorrow_schedules(json_path, out_path=None):
     sch_names = data.get('preset', {}).get('sch_names', {})
     last_updated = data.get('fact', {}).get('update', '')
     
-    # === ГОЛОВНА ЗМІНА: Шукаємо ключ для завтра ===
+    # === Шукаємо ключ для завтра ===
     tomorrow_ts, tomorrow_date = find_tomorrow_key(fact_data)
     
     if not tomorrow_ts:
@@ -112,10 +137,10 @@ def render_all_tomorrow_schedules(json_path, out_path=None):
 
     tomorrow_data = fact_data.get(tomorrow_ts, {})
     
-    # Перевіряємо, чи є всередині графіки GPV (а не просто пустий об'єкт)
+    # Перевіряємо, чи є всередині графіки GPV
     gpv_keys = sorted([k for k in tomorrow_data if k.startswith('GPV')])
     if not gpv_keys:
-        print(f"[SKIP] gpv-all-tomorrow.png (Timestamp {tomorrow_ts} exists but represents empty data)")
+        print(f"[SKIP] gpv-all-tomorrow.png (No GPV data in tomorrow's record)")
         return
     
     # Налаштування шляхів
@@ -132,14 +157,14 @@ def render_all_tomorrow_schedules(json_path, out_path=None):
     prev_hash = load_previous_hash(hash_dir)
     output_file = out_p / 'gpv-all-tomorrow.png'
     
+    # Пропускаємо тільки якщо хеш однаковий
     if new_hash == prev_hash and output_file.exists():
-        print(f"[SKIP] gpv-all-tomorrow.png (Data for tomorrow unchanged)")
+        print(f"[SKIP] gpv-all-tomorrow.png (Data unchanged)")
         return
     
-    print(f"[GENERATE] gpv-all-tomorrow.png for {tomorrow_date.strftime('%d.%m')}")
+    print(f"[GENERATE] gpv-all-tomorrow.png for {tomorrow_date.strftime('%d.%m.%Y')}")
     
-    # === ДАЛІ ЙДЕ КОД РЕНДЕРИНГУ ===
-    # Форматуємо дату для заголовка
+    # === КОД РЕНДЕРИНГУ ===
     months_uk = {
         1: 'січня', 2: 'лютого', 3: 'березня', 4: 'квітня',
         5: 'травня', 6: 'червня', 7: 'липня', 8: 'серпня',
