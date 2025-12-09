@@ -39,6 +39,7 @@ def calculate_all_tomorrow_hash(tomorrow_data):
     return hashlib.sha256(data_str.encode()).hexdigest()
 
 def load_previous_hash(hash_dir):
+    """Завантажує попередній хеш з папки hash/"""
     hash_file = hash_dir / 'gpv-all-tomorrow.hash'
     if hash_file.exists():
         try:
@@ -49,6 +50,7 @@ def load_previous_hash(hash_dir):
     return None
 
 def save_hash(hash_dir, data_hash):
+    """Зберігає хеш даних у папку hash/"""
     hash_dir.mkdir(parents=True, exist_ok=True)
     hash_file = hash_dir / 'gpv-all-tomorrow.hash'
     try:
@@ -60,34 +62,33 @@ def save_hash(hash_dir, data_hash):
 def find_tomorrow_key(data_dict):
     """
     Шукає в словнику ключ (timestamp), який відповідає ЗАВТРАШНІЙ даті
-    відносно реального часу.
+    відносно реального часу в Київі.
+    Впорається з науковою нотацією ключів (1.7652312e+09).
     """
-    # 1. Визначаємо, яка дата "завтра" в Києві
     now_utc = datetime.now(timezone.utc)
     now_kyiv = now_utc + KYIV_OFFSET
     tomorrow_kyiv = now_kyiv + timedelta(days=1)
     
     target_day = tomorrow_kyiv.day
     target_month = tomorrow_kyiv.month
-    
-    # print(f"DEBUG: Looking for date: {target_day}.{target_month}")
 
-    # 2. Перебираємо ключі JSON
     for key in data_dict.keys():
-        if not key.isdigit():
+        # Спробуємо конвертувати ключ у число, незалежно від формату
+        try:
+            ts = int(float(key))  # Впорається з "1.7652312e+09" та "1765231200"
+        except (ValueError, TypeError):
             continue
-            
-        ts = int(key)
-        # Конвертуємо timestamp ключа в дату
+        
         key_date = datetime.fromtimestamp(ts, KYIV_TZ)
         
-        # Перевіряємо збіг дня і місяця
         if key_date.day == target_day and key_date.month == target_month:
             return key, key_date
 
     return None, None
 
 def render_all_tomorrow_schedules(json_path, out_path=None):
+    """Рендерити всі графіки на завтра в одну таблицю"""
+    
     with open(json_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
     
@@ -99,7 +100,6 @@ def render_all_tomorrow_schedules(json_path, out_path=None):
     tomorrow_ts, tomorrow_date = find_tomorrow_key(fact_data)
     
     if not tomorrow_ts:
-        # Даних на завтра у файлі ще немає
         print(f"[SKIP] gpv-all-tomorrow.png (No data found for tomorrow yet)")
         return
 
@@ -131,7 +131,7 @@ def render_all_tomorrow_schedules(json_path, out_path=None):
     
     print(f"[GENERATE] gpv-all-tomorrow.png for {tomorrow_date.strftime('%d.%m')}")
     
-    # === ДАЛІ ЙДЕ ВАШ КОД РЕНДЕРИНГУ ===
+    # === ДАЛІ ЙДЕ КОД РЕНДЕРИНГУ ===
     # Форматуємо дату для заголовка
     months_uk = {
         1: 'січня', 2: 'лютого', 3: 'березня', 4: 'квітня',
@@ -227,34 +227,35 @@ def render_all_tomorrow_schedules(json_path, out_path=None):
     cell_h_fig = (0.85 - 0.15) / table_height * cell_h
     spacing = 0.09
     
-    # Легенда 1
+    # Легенда 1: Білий (світло є)
     x1 = legend_x_center - 1.8 * spacing
     rect = Rectangle((x1 - cell_w_fig/2, legend_y - cell_h_fig/2), cell_w_fig, cell_h_fig, 
                     linewidth=0.5, edgecolor=BORDER, facecolor=WHITE, transform=fig.transFigure, clip_on=False)
     fig.patches.append(rect)
     fig.text(x1 + cell_w_fig/2 + 0.005, legend_y, 'Світло є', fontsize=11, va='center')
     
-    # Легенда 2
+    # Легенда 2: Повністю оранжева (світла нема)
     x2 = legend_x_center - 0.6 * spacing
     rect = Rectangle((x2 - cell_w_fig/2, legend_y - cell_h_fig/2), cell_w_fig, cell_h_fig, 
                     linewidth=0.5, edgecolor=BORDER, facecolor=ORANGE, transform=fig.transFigure, clip_on=False)
     fig.patches.append(rect)
     fig.text(x2 + cell_w_fig/2 + 0.005, legend_y, 'Світла нема', fontsize=11, va='center')
     
-    # Легенда 3
+    # Легенда 3: Ліва половина оранжева (перші 30 хв)
     x3 = legend_x_center + 0.6 * spacing
     fig.patches.append(Rectangle((x3 - cell_w_fig/2, legend_y - cell_h_fig/2), cell_w_fig/2, cell_h_fig, linewidth=0, facecolor=WHITE, transform=fig.transFigure, clip_on=False))
     fig.patches.append(Rectangle((x3, legend_y - cell_h_fig/2), cell_w_fig/2, cell_h_fig, linewidth=0, facecolor=ORANGE, transform=fig.transFigure, clip_on=False))
     fig.patches.append(Rectangle((x3 - cell_w_fig/2, legend_y - cell_h_fig/2), cell_w_fig, cell_h_fig, linewidth=0.5, edgecolor=BORDER, facecolor='none', transform=fig.transFigure, clip_on=False))
     fig.text(x3 + cell_w_fig/2 + 0.005, legend_y, 'Світла нема\nперші 30 хв.', fontsize=11, va='center')
 
-    # Легенда 4
+    # Легенда 4: Права половина оранжева (другі 30 хв)
     x4 = legend_x_center + 1.8 * spacing
     fig.patches.append(Rectangle((x4 - cell_w_fig/2, legend_y - cell_h_fig/2), cell_w_fig/2, cell_h_fig, linewidth=0, facecolor=ORANGE, transform=fig.transFigure, clip_on=False))
     fig.patches.append(Rectangle((x4, legend_y - cell_h_fig/2), cell_w_fig/2, cell_h_fig, linewidth=0, facecolor=WHITE, transform=fig.transFigure, clip_on=False))
     fig.patches.append(Rectangle((x4 - cell_w_fig/2, legend_y - cell_h_fig/2), cell_w_fig, cell_h_fig, linewidth=0.5, edgecolor=BORDER, facecolor='none', transform=fig.transFigure, clip_on=False))
     fig.text(x4 + cell_w_fig/2 + 0.005, legend_y, 'Світла нема\nдругі 30 хв.', fontsize=11, va='center')
 
+    # Дата оновлення
     if last_updated:
         fig.text(0.8, 0.001, f'Опубліковано {last_updated}', fontsize=11, ha='right', style='italic')
 
