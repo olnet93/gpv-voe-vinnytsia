@@ -41,7 +41,7 @@ jobs:
 
       - name: Generate all schedules tomorrow
         run: |
-          python scripts/render_png_all_tomorrow.py --json Vinnytsiaoblenerho.json
+          python scripts/render_png_all_tomorrow.py --json Vinnytsiaoblenerho.json --out ./images/Vinnytsiaoblenerho
             
       - name: Commit and push
         run: |
