@@ -3,7 +3,6 @@
 Schedule PNG Renderer - таблиця усіх графіків на завтра
 Генерує PNG тільки якщо дані змінилися (за хешем)
 Хеші зберігаються в папці hash/
-Використовує той же метод розрахунку дати, що й render_schedule.py
 """
 
 import json
@@ -71,18 +70,10 @@ def render_all_tomorrow_schedules(json_path, out_path=None):
     fact_data = data.get('fact', {}).get('data', {})
     sch_names = data.get('preset', {}).get('sch_names', {})
     last_updated = data.get('fact', {}).get('update', '')
-    
-    # === РОЗРАХОВУЄМО ЗАВТРА ЯК У render_schedule.py ===
     today_ts = str(data.get('fact', {}).get('today'))
     tomorrow_ts = str(int(today_ts) + 86400)
     
-    print(f"[INFO] today_ts={today_ts}, tomorrow_ts={tomorrow_ts}")
-    
     tomorrow_data = fact_data.get(tomorrow_ts, {})
-    
-    # Отримуємо дату завтра з таймзоною Київ
-    tomorrow_date = datetime.fromtimestamp(int(tomorrow_ts), tz=KYIV_TZ)
-    print(f"[INFO] Tomorrow date: {tomorrow_date.strftime('%d.%m.%Y %H:%M:%S')}")
     
     # Папка для виходу
     if out_path:
@@ -99,16 +90,15 @@ def render_all_tomorrow_schedules(json_path, out_path=None):
     
     output_file = out_p / 'gpv-all-tomorrow.png'
     
-    print(f"[INFO] New hash: {new_hash[:16]}...")
-    print(f"[INFO] Prev hash: {prev_hash[:16] if prev_hash else 'None'}...")
-    print(f"[INFO] File exists: {output_file.exists()}")
-    
     # Якщо хеші збігаються, пропускаємо генерацію
     if new_hash == prev_hash and output_file.exists():
         print(f"[SKIP] gpv-all-tomorrow.png (no data changes)")
         return
     
-    print(f"[GENERATE] gpv-all-tomorrow.png for {tomorrow_date.strftime('%d.%m.%Y')}")
+    print(f"[GENERATE] gpv-all-tomorrow.png")
+    
+    # Отримуємо дату завтра з таймзоною Київ
+    tomorrow_date = datetime.fromtimestamp(int(tomorrow_ts), tz=KYIV_TZ)
     
     # Форматуємо дату як "ДД місяць" (укр.)
     months_uk = {
@@ -119,15 +109,16 @@ def render_all_tomorrow_schedules(json_path, out_path=None):
     
     tomorrow_str = f'{tomorrow_date.day:02d} {months_uk[tomorrow_date.month]}'
     
-    # Отримуємо всі GPV ключі з завтра
+    # Отримуємо всі GPV ключі з завтра (якщо немає - fallback на сьогодні)
     gpv_keys = sorted([k for k in tomorrow_data if k.startswith('GPV')])
-    
-    print(f"[INFO] Found {len(gpv_keys)} GPV schedules")
+    if not gpv_keys:
+        today_data = fact_data.get(today_ts, {})
+        gpv_keys = sorted([k for k in today_data if k.startswith('GPV')])
     
     num_schedules = len(gpv_keys)
     
     if num_schedules == 0:
-        print("[SKIP] gpv-all-tomorrow.png (No GPV schedules found)")
+        print("ERROR: No GPV schedules found in data")
         return
     
     # Розміри клітинок
@@ -290,7 +281,7 @@ def render_all_tomorrow_schedules(json_path, out_path=None):
     
     # === ЗБЕРЕЖЕННЯ PNG ===
     plt.savefig(output_file, facecolor=WHITE, dpi=150, bbox_inches='tight', pad_inches=0.13)
-    print(f"[OK] Saved {output_file}")
+    print(f"[OK] {output_file}")
     
     # Зберігаємо хеш в папку hash/
     save_hash(hash_dir, new_hash)
