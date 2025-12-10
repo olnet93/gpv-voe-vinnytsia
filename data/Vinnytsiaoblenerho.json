@@ -1,6 +1,6 @@
 {
   "regionId": "vinnytsia",
-  "lastUpdated": 1765381940,
+  "lastUpdated": 1765382265,
   "fact": {
     "data": {
       "1765317600": {
@@ -51,7 +51,7 @@
           "18": "no",
           "19": "no",
           "20": "no",
-          "21": "yes",
+          "21": "first",
           "22": "yes",
           "23": "yes",
           "24": "yes"
@@ -128,8 +128,8 @@
           "17": "yes",
           "18": "no",
           "19": "no",
-          "20": "yes",
-          "21": "second",
+          "20": "no",
+          "21": "no",
           "22": "no",
           "23": "no",
           "24": "no"
@@ -154,8 +154,8 @@
           "17": "yes",
           "18": "no",
           "19": "no",
-          "20": "yes",
-          "21": "second",
+          "20": "no",
+          "21": "no",
           "22": "no",
           "23": "no",
           "24": "no"
@@ -233,7 +233,7 @@
           "18": "yes",
           "19": "yes",
           "20": "yes",
-          "21": "yes",
+          "21": "second",
           "22": "yes",
           "23": "yes",
           "24": "yes"
@@ -259,7 +259,7 @@
           "18": "yes",
           "19": "yes",
           "20": "yes",
-          "21": "yes",
+          "21": "second",
           "22": "yes",
           "23": "yes",
           "24": "yes"
@@ -311,7 +311,7 @@
           "18": "yes",
           "19": "yes",
           "20": "yes",
-          "21": "yes",
+          "21": "second",
           "22": "yes",
           "23": "yes",
           "24": "yes"
@@ -632,7 +632,7 @@
         }
       }
     },
-    "update": "10.12.2025 17:52",
+    "update": "10.12.2025 17:57",
     "today": 1765317600
   },
   "preset": {
@@ -659,19 +659,19 @@
       "GPV6.1": "Черга 6.1",
       "GPV6.2": "Черга 6.2"
     },
-    "updateFact": "10.12.2025 17:52"
+    "updateFact": "10.12.2025 17:57"
   },
   "lastUpdateStatus": {
     "status": "parsed",
     "ok": true,
     "code": 200,
     "message": null,
-    "at": 1765381940,
+    "at": 1765382265,
     "attempt": 1
   },
   "regionAffiliation": "Вінницька область",
   "meta": {
     "schemaVersion": "1.0.0",
-    "contentHash": "92fd3073d677b300944ee74394c237af25b7f941c55a7eb35227eb61dfbffc11"
+    "contentHash": "a14ee56e52f11887fa44281f6e26cba7a6bf3d8f0a009081d156a081dfb04c10"
   }
 }
