@@ -4,11 +4,17 @@ on:
   schedule:
     # Запуск кожні 10 хвилин (як було у парсера)
     - cron: '1 * * * *'
+    - cron: '6 * * * *'
     - cron: '11 * * * *'
+    - cron: '16 * * * *'
     - cron: '21 * * * *'
+    - cron: '26 * * * *'
     - cron: '31 * * * *'
+    - cron: '36 * * * *'
     - cron: '41 * * * *'
+    - cron: '46 * * * *'
     - cron: '51 * * * *'
+    - cron: '56 * * * *'
   workflow_dispatch:
 
 permissions:
