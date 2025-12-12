@@ -1,6 +1,6 @@
 {
   "regionId": "vinnytsia",
-  "lastUpdated": 1765583150,
+  "lastUpdated": 1765583254,
   "fact": {
     "data": {
       "1765576800": {
@@ -85,10 +85,10 @@
         "GPV2.2": {
           "1": "yes",
           "2": "yes",
-          "3": "no",
-          "4": "no",
-          "5": "no",
-          "6": "no",
+          "3": "yes",
+          "4": "yes",
+          "5": "yes",
+          "6": "yes",
           "7": "yes",
           "8": "yes",
           "9": "yes",
@@ -167,8 +167,8 @@
           "4": "yes",
           "5": "yes",
           "6": "yes",
-          "7": "no",
-          "8": "no",
+          "7": "yes",
+          "8": "yes",
           "9": "yes",
           "10": "yes",
           "11": "yes",
@@ -191,8 +191,8 @@
           "2": "no",
           "3": "yes",
           "4": "yes",
-          "5": "no",
-          "6": "no",
+          "5": "yes",
+          "6": "yes",
           "7": "no",
           "8": "no",
           "9": "yes",
@@ -241,8 +241,8 @@
         "GPV5.2": {
           "1": "yes",
           "2": "yes",
-          "3": "no",
-          "4": "no",
+          "3": "yes",
+          "4": "yes",
           "5": "yes",
           "6": "yes",
           "7": "yes",
@@ -297,8 +297,8 @@
           "4": "no",
           "5": "yes",
           "6": "yes",
-          "7": "no",
-          "8": "no",
+          "7": "yes",
+          "8": "yes",
           "9": "no",
           "10": "no",
           "11": "yes",
@@ -632,7 +632,7 @@
         }
       }
     },
-    "update": "13.12.2025 01:45",
+    "update": "13.12.2025 01:47",
     "today": 1765576800
   },
   "preset": {
@@ -659,19 +659,19 @@
       "GPV6.1": "Черга 6.1",
       "GPV6.2": "Черга 6.2"
     },
-    "updateFact": "13.12.2025 01:45"
+    "updateFact": "13.12.2025 01:47"
   },
   "lastUpdateStatus": {
     "status": "parsed",
     "ok": true,
     "code": 200,
     "message": null,
-    "at": 1765583150,
+    "at": 1765583254,
     "attempt": 1
   },
   "regionAffiliation": "Вінницька область",
   "meta": {
     "schemaVersion": "1.0.0",
-    "contentHash": "4cb5ee0b2495762eb9a21c09dd9dfeefed6d3dc8776ea52a96b448f943f924af"
+    "contentHash": "ac3b092f39cffde9ab13def6508b039db91ef6b2ebb72d0c0031691c447590af"
   }
 }
